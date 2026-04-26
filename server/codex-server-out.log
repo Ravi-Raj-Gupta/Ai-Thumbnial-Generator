@@ -1,0 +1,30 @@
+
+> server@1.0.0 start
+> tsx server.ts
+
+MONGO DB CONNECTED
+Server is running at http://localhost:3001
+Hugging Face failed, falling back to Gemini: Error: Hugging Face auth/provider error: Failed to fetch inference provider mapping for model stabilityai/stable-diffusion-2: Repository not found. Check whether your token is valid and has Inference Providers permission.
+    at generateWithHuggingFace (D:\Let's Code With Ravi\projects\AI Thumbnail Generator\server\controllers\thumbnailController.ts:90:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async generateThumbnail (D:\Let's Code With Ravi\projects\AI Thumbnail Generator\server\controllers\thumbnailController.ts:203:27)
+ApiError: {"error":{"code":404,"message":"models/gemini-2.0-flash-preview-image-generation is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.","status":"NOT_FOUND"}}
+    at throwErrorIfNotOK (D:\Let's Code With Ravi\projects\AI Thumbnail Generator\server\node_modules\@google\genai\src\_api_client.ts:951:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (D:\Let's Code With Ravi\projects\AI Thumbnail Generator\server\node_modules\@google\genai\src\_api_client.ts:559:9)
+    at async Models.Models.generateContent (D:\Let's Code With Ravi\projects\AI Thumbnail Generator\server\node_modules\@google\genai\src\models.ts:123:14)
+    at async runRequest (D:\Let's Code With Ravi\projects\AI Thumbnail Generator\server\controllers\thumbnailController.ts:116:29)
+    at async generateWithGemini (D:\Let's Code With Ravi\projects\AI Thumbnail Generator\server\controllers\thumbnailController.ts:138:14)
+    at async generateThumbnail (D:\Let's Code With Ravi\projects\AI Thumbnail Generator\server\controllers\thumbnailController.ts:209:27) {
+  status: 404
+}
+MONGO DB CONNECTED
+MONGO DB CONNECTED
+MONGO DB CONNECTED
+MONGO DB CONNECTED
+MONGO DB CONNECTED
+MONGO DB CONNECTED
+MONGO DB CONNECTED
+MONGO DB CONNECTED
+MONGO DB CONNECTED
+MONGO DB CONNECTED
