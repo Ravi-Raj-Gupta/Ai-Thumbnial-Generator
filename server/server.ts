@@ -17,10 +17,8 @@ declare module "express-session" {
    }
 }
 
-// Initialize Express app first
 const app = express();
 
-// Basic middleware setup
 app.use(cors({
    origin: ['http://localhost:5173', 'http://localhost:3000'],
    credentials: true
@@ -28,12 +26,10 @@ app.use(cors({
 
 app.use(express.json());
 
-// Connect to DB with error handling (non-blocking)
 connectDB().catch(err => {
    console.warn('⚠️  MongoDB connection failed during startup');
 });
 
-// Session configuration - use memory store for development
 let sessionConfig: any = {
    secret: process.env.SESSION_SECRET as string,
    resave: false,
@@ -45,7 +41,6 @@ let sessionConfig: any = {
    },
 };
 
-// Only attempt MongoDB session store if MongoDB is available AND in production
 if (process.env.MONGODB_URI && process.env.NODE_ENV === 'production') {
    try {
       sessionConfig.store = MongoStore.create({
@@ -77,12 +72,10 @@ app.listen(port, () => {
    console.log(`Server is running at http://localhost:${port}`);
 });
 
-// Handle uncaught errors to prevent server crashes
 process.on('unhandledRejection', (reason, promise) => {
    console.error('⚠️  Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 process.on('uncaughtException', (error) => {
    console.error('⚠️  Uncaught Exception:', error);
-   // Don't exit the process - keep the server running
 });

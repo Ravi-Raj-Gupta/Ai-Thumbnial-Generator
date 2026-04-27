@@ -2,19 +2,13 @@ import { Request, Response } from "express";
 import User from "../models/User.js";
 import bcrypt from 'bcrypt';
 
-// controllers for user registrations
-
 export const registerUser = async (req: Request, res: Response) => {
    try {
       const { email, name, password } = req.body
-
-      // find user by email
       const user = await User.findOne({ email })
       if (user) {
          return res.status(400).json({ message: "User already exists" })
       }
-
-      // encrypt the password
 
       const salt = await bcrypt.genSalt(10)
 
@@ -42,9 +36,6 @@ export const registerUser = async (req: Request, res: Response) => {
       return res.status(500).json({ message: "Server error" })
    }
 }
-
-
-// controller for user login 
 
 export const loginUser = async (req: Request, res: Response) => {
    try {
@@ -75,9 +66,6 @@ export const loginUser = async (req: Request, res: Response) => {
    }
 }
 
-
-
-// controller for user logout
 export const logoutUser = async (req: Request, res: Response) => {
    req.session.destroy((error: any) => {
       if (error) {
@@ -86,9 +74,6 @@ export const logoutUser = async (req: Request, res: Response) => {
    })
    return res.json({ message: "Logout successful" })
 }
-
-
-// controllers for user verify
 
 export const verifyUser = async (req: Request, res: Response) => {
    try {
@@ -99,7 +84,7 @@ export const verifyUser = async (req: Request, res: Response) => {
 
       const user = await User.findById(userId).select("-password")
       if (!user) {
-         req.session.destroy(() => {})
+         req.session.destroy(() => { })
          return res.status(200).json({ user: null, isLoggedIn: false })
       }
       return res.status(200).json({ user, isLoggedIn: true })
