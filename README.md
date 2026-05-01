@@ -370,14 +370,6 @@ GET /api/user/thumbnails/:id
 6. Cloudinary image URL is saved in MongoDB.
 7. Frontend displays the generated thumbnail.
 
-## Important Notes
-
-- Do not commit your real `.env` file.
-- Keep `GEMINI_API_KEY`, `MONGODB_URI`, `SESSION_SECRET`, and `CLOUDINARY_URL` private.
-- The backend uses in-memory sessions in development.
-- In production, MongoDB session storage is enabled when `NODE_ENV=production`.
-- Gemini image generation requires a valid Gemini API key and supported region/account access.
-
 ## Troubleshooting
 
 **Backend is not running**
