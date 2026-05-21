@@ -83,3 +83,5 @@ process.on("unhandledRejection", (reason, promise) => {
 process.on("uncaughtException", (error) => {
    console.error("⚠️  Uncaught Exception:", error);
 });
+
+export default app;
