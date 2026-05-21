@@ -38,7 +38,7 @@ connectDB().catch((err) => {
 let sessionConfig: any = {
    secret: process.env.SESSION_SECRET as string,
    resave: false,
-   saveUninitialized: false,
+   saveUninitialized: true,
    cookie: {
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
       httpOnly: true,
@@ -46,7 +46,7 @@ let sessionConfig: any = {
    },
 };
 
-if (process.env.MONGODB_URI && process.env.NODE_ENV === "production") {
+if (process.env.MONGODB_URI) {
    try {
       sessionConfig.store = MongoStore.create({
          mongoUrl: process.env.MONGODB_URI,

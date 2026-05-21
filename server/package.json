@@ -18,12 +18,14 @@
       "@types/express": "^5.0.6",
       "@types/express-session": "^1.18.2",
       "@types/node": "^25.5.2",
+      "axios": "^1.16.1",
       "nodemon": "^3.1.14",
       "ts-node": "^10.9.2",
       "tsx": "^4.21.0",
       "typescript": "^6.0.2"
    },
    "dependencies": {
+      "@faker-js/faker": "^10.4.0",
       "@google/genai": "^1.48.0",
       "bcrypt": "^6.0.0",
       "cloudinary": "^2.9.0",
@@ -32,6 +34,8 @@
       "dotenv": "^17.4.0",
       "express": "^5.2.1",
       "express-session": "^1.19.0",
-      "mongoose": "^9.4.1"
+      "http-cookie-agent": "^8.0.0",
+      "mongoose": "^9.4.1",
+      "tough-cookie": "^6.0.1"
    }
 }
