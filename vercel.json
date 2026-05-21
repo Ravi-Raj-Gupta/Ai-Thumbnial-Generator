@@ -1,0 +1,21 @@
+{
+   "version": 2,
+   "builds": [
+      {
+         "src": "server/server.ts",
+         "use": "@vercel/node"
+      }
+   ],
+   "routes": [
+      {
+         "src": "/(.*)",
+         "dest": "server/server.ts"
+      }
+   ],
+   "env": {
+      "MONGODB_URI": "@mongodb_uri",
+      "SESSION_SECRET": "@session_secret",
+      "GOOGLE_GENAI_API_KEY": "@google_genai_api_key",
+      "CLOUDINARY_URL": "@cloudinary_url"
+   }
+}
