@@ -2,11 +2,14 @@ import "dotenv/config";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import connectDB from "./configs/mongodb.js";
-import session from "express-session";
-import MongoStore from "connect-mongo";
+import session, { SessionOptions } from "express-session";
+import ConnectMongo from "connect-mongo";
 import authRouter from "./routes/authRoutes.js";
 import ThumbnailRouter from "./routes/ThumbnailRoutes.js";
 import userRouter from "./routes/userRoutes.js";
+
+// Type-safe MongoStore constructor
+const MongoStore = ConnectMongo;
 
 declare module "express-session" {
    interface SessionData {
@@ -35,19 +38,20 @@ connectDB().catch((err) => {
    console.warn("⚠️  MongoDB connection failed during startup");
 });
 
-let sessionConfig: any = {
+let sessionConfig: SessionOptions = {
    secret: process.env.SESSION_SECRET as string,
    resave: false,
    saveUninitialized: false,
    cookie: {
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Set to true in production with HTTPS
-      sameSite: "lax" as const,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
    },
 };
 
-if (process.env.MONGODB_URI && process.env.NODE_ENV === "production") {
+// Add MongoStore if in production and MongoDB URI is available
+if (process.env.NODE_ENV === "production" && process.env.MONGODB_URI) {
    try {
       sessionConfig.store = new MongoStore({
          mongoUrl: process.env.MONGODB_URI,
@@ -55,7 +59,7 @@ if (process.env.MONGODB_URI && process.env.NODE_ENV === "production") {
          touchAfter: 24 * 3600,
       });
    } catch (error: unknown) {
-      const err = error as Error;
+      const err = error instanceof Error ? error : new Error(String(error));
       console.warn("⚠️  MongoDB session store error:", err.message);
    }
 }
