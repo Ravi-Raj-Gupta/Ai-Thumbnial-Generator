@@ -1,27 +1,31 @@
 {
-  "version": 2,
-  "buildCommand": "cd client && npm install && npm run build && cd ../server && npm install && npm run build",
-  "build": {
-    "env": {
-      "MONGODB_URI": "@mongodb_uri",
-      "JWT_SECRET": "@jwt_secret",
-      "GOOGLE_API_KEY": "@google_api_key"
-    }
-  },
-  "functions": {
-    "server/dist/server.js": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
-  },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/server/dist/server.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/client/dist/$1"
-    }
-  ]
+   "version": 2,
+   "builds": [
+      {
+         "src": "client/package.json",
+         "use": "@vercel/static-build",
+         "config": {
+            "distDir": "client/dist"
+         }
+      },
+      {
+         "src": "server/server.ts",
+         "use": "@vercel/node"
+      }
+   ],
+   "routes": [
+      {
+         "src": "/api/(.*)",
+         "dest": "server/server.ts"
+      },
+      {
+         "src": "/(.*)",
+         "dest": "client/dist/$1"
+      }
+   ],
+   "env": {
+      "MONGODB_URI": "@MONGODB_URI",
+      "JWT_SECRET": "@JWT_SECRET",
+      "GOOGLE_API_KEY": "@GOOGLE_API_KEY"
+   }
 }
