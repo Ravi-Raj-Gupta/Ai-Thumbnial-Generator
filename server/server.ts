@@ -3,7 +3,7 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import connectDB from "./configs/mongodb.js";
 import session from "express-session";
-import ConnectMongo from "connect-mongo";
+import MongoStore from "connect-mongo";
 import authRouter from "./routes/authRoutes.js";
 import ThumbnailRouter from "./routes/ThumbnailRoutes.js";
 import userRouter from "./routes/userRoutes.js";
@@ -17,9 +17,14 @@ declare module "express-session" {
 
 const app = express();
 
+const corsOrigins =
+   process.env.NODE_ENV === "production"
+      ? [process.env.FRONTEND_URL || "https://your-frontend.vercel.app"]
+      : ["http://localhost:5173", "http://localhost:3000"];
+
 app.use(
    cors({
-      origin: ["http://localhost:5173", "http://localhost:3000"],
+      origin: corsOrigins,
       credentials: true,
    }),
 );
@@ -37,21 +42,21 @@ let sessionConfig: any = {
    cookie: {
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
       httpOnly: true,
-      secure: false, // Set to true in production with HTTPS
+      secure: process.env.NODE_ENV === "production", // Set to true in production with HTTPS
+      sameSite: "lax" as const,
    },
 };
 
 if (process.env.MONGODB_URI && process.env.NODE_ENV === "production") {
    try {
-      sessionConfig.store = ConnectMongo.create({
+      sessionConfig.store = new MongoStore({
          mongoUrl: process.env.MONGODB_URI,
          collectionName: "sessions",
          touchAfter: 24 * 3600,
-      }).on("error", (err: Error) => {
-         console.warn("⚠️  MongoDB session store error:", err.message);
       });
-   } catch (error) {
-      console.warn("⚠️  MongoDB session store not available");
+   } catch (error: unknown) {
+      const err = error as Error;
+      console.warn("⚠️  MongoDB session store error:", err.message);
    }
 }
 
