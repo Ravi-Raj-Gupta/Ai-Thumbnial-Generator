@@ -1,0 +1,32 @@
+{
+   "name": "ai-thumbnail-generator",
+   "version": "1.0.0",
+   "description": "",
+   "main": "index.js",
+   "scripts": {
+      "start": "npx tsc && node dist/index.js",
+      "dev": "nodemon index.ts",
+      "test": "echo \"Error: no test specified\" && exit 1"
+   },
+   "repository": {
+      "type": "git",
+      "url": "git+https://github.com/Ravi-Raj-Gupta/Ai-Thumbnial-Generator.git"
+   },
+   "keywords": [],
+   "author": "",
+   "license": "ISC",
+   "bugs": {
+      "url": "https://github.com/Ravi-Raj-Gupta/Ai-Thumbnial-Generator/issues"
+   },
+   "homepage": "https://github.com/Ravi-Raj-Gupta/Ai-Thumbnial-Generator#readme",
+   "dependencies": {
+      "express": "^5.2.1"
+   },
+   "devDependencies": {
+      "@types/express": "^5.0.6",
+      "@types/node": "^25.9.1",
+      "nodemon": "^3.1.14",
+      "ts-node": "^10.9.2",
+      "typescript": "^6.0.3"
+   }
+}
