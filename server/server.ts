@@ -41,6 +41,8 @@ app.use(
 );
 
 import AuthRouter from "./routes/AuthRoutes.js";
+import ThumbnailRouter from "./routes/ThumbnailRoutes.js";
+import UserRouter from "./routes/UserRoutes.js";
 
 app.use(express.json());
 
@@ -49,6 +51,8 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 app.use("/api/auth", AuthRouter);
+app.use("/api/thumbnail", ThumbnailRouter);
+app.use("/api/user", UserRouter);
 
 const port = process.env.PORT || 3000;
 
