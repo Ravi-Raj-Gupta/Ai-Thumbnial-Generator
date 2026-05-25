@@ -44,11 +44,11 @@ import AuthRouter from "./routes/AuthRoutes.js";
 
 app.use(express.json());
 
-app.use("/api/auth", AuthRouter);
-
 app.get("/", (req: Request, res: Response) => {
    res.send("Server is Live!");
 });
+
+app.use("/api/auth", AuthRouter);
 
 const port = process.env.PORT || 3000;
 
