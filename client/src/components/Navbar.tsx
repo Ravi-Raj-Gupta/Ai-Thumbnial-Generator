@@ -17,7 +17,12 @@ export default function Navbar() {
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ type: "spring", stiffness: 250, damping: 70, mass: 1 }}
+            transition={{
+               type: "spring",
+               stiffness: 250,
+               damping: 70,
+               mass: 1,
+            }}
          >
             <Link to="/">
                <img src="/logo.svg" alt="logo" className="h-8.5 w-auto" />
@@ -30,9 +35,18 @@ export default function Navbar() {
                <Link to="/generate" className="hover:text-pink-300 transition">
                   Generate
                </Link>
-               <Link to="/my-generation" className="hover:text-pink-300 transition">
-                  My Generations
-               </Link>
+               {isLoggedIn ? (
+                  <Link
+                     to="/my-generation"
+                     className="hover:text-pink-300 transition"
+                  >
+                     My Generations
+                  </Link>
+               ) : (
+                  <Link to="#" className="hover:text-pink-300 transition">
+                     About
+                  </Link>
+               )}
                <Link to="/about" className="hover:text-pink-300 transition">
                   About
                </Link>
@@ -49,9 +63,11 @@ export default function Navbar() {
                            {user?.name?.charAt(0).toUpperCase()}
                         </button>
                         <div className="invisible absolute right-0 top-11 z-50 w-36 rounded-xl border border-white/10 bg-black/80 p-2 opacity-0 shadow-xl backdrop-blur transition-all group-hover:visible group-hover:opacity-100">
-                           <p className="px-3 py-2 text-xs text-zinc-400">{user?.name}</p>
+                           <p className="px-3 py-2 text-xs text-zinc-400">
+                              {user?.name}
+                           </p>
                            <button
-                              onClick={logout}
+                              onClick={() => logout()}
                               className="w-full rounded-lg px-3 py-2 text-left text-sm text-white transition hover:bg-white/10"
                            >
                               Logout
@@ -67,7 +83,9 @@ export default function Navbar() {
                         </button>
                         {isUserMenuOpen && (
                            <div className="absolute right-0 top-11 z-50 w-36 rounded-xl border border-white/10 bg-black/85 p-2 shadow-xl backdrop-blur">
-                              <p className="px-3 py-2 text-xs text-zinc-400">{user?.name}</p>
+                              <p className="px-3 py-2 text-xs text-zinc-400">
+                                 {user?.name}
+                              </p>
                               <button
                                  onClick={() => {
                                     setIsUserMenuOpen(false);
@@ -111,12 +129,15 @@ export default function Navbar() {
             <Link onClick={() => setIsOpen(false)} to="/generate">
                Generate
             </Link>
-            <Link onClick={() => setIsOpen(false)} to="/my-generation">
-               My Generations
-            </Link>
-            <Link onClick={() => setIsOpen(false)} to="/about">
-               About
-            </Link>
+            {isLoggedIn ? (
+               <Link onClick={() => setIsOpen(false)} to="/my-generation">
+                  My Generations
+               </Link>
+            ) : (
+               <Link onClick={() => setIsOpen(false)} to="#">
+                  About
+               </Link>
+            )}
             <Link onClick={() => setIsOpen(false)} to="/contact">
                Contact us
             </Link>
