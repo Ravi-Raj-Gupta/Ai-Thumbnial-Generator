@@ -72,7 +72,7 @@ export default function ContactUs() {
          toast.success("Your message is ready. Opening your email app now.");
 
          const params = new URLSearchParams({
-            subject: `[AI Thumbnail Generator] ${formData.subject}`,
+            subject: `[ClickFrame] ${formData.subject}`,
             body: `Name: ${formData.name}\nEmail: ${formData.email}\n\n${formData.message}`,
          });
 

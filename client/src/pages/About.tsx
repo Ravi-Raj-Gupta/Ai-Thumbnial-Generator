@@ -21,7 +21,7 @@ export default function About() {
                         About the product
                      </div>
                      <h1 className="max-w-3xl text-4xl font-bold leading-tight text-white md:text-5xl">
-                        AI Thumbnail Generator helps creators move from idea to
+                        ClickFrame helps creators move from idea to
                         publish-ready visual faster.
                      </h1>
                      <p className="max-w-2xl text-base leading-7 text-zinc-300 md:text-lg">

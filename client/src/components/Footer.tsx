@@ -52,7 +52,7 @@ export default function Footer() {
                Making every creator feel valued, no matter the size of the audience.
             </p>
             <p className="mt-3 text-center">
-               &copy; {new Date().getFullYear()} AI Thumbnail Generator | Ravi Raj
+               &copy; {new Date().getFullYear()} ClickFrame | Ravi Raj
             </p>
          </motion.div>
       </footer>
