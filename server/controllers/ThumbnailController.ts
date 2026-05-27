@@ -6,7 +6,9 @@ import path from "path";
 import sharp from "sharp";
 import cloudinary from "../configs/cloudinary.js";
 
-// --- Style & Color Prompt Mappings ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Style & Color Prompt Mappings
+// ─────────────────────────────────────────────────────────────────────────────
 
 const stylePrompts = {
    "Bold & Graphic":
@@ -38,52 +40,116 @@ const colorSchemeDescriptions = {
       "soft pastel colors, low saturation, gentle tones, calm and friendly aesthetic",
 };
 
-// --- Color scheme to text color mapping for best contrast ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Layout Plan Interface
+// ─────────────────────────────────────────────────────────────────────────────
 
-const colorSchemeTextColors: Record<string, { text: string; shadow: string; gradient: string }> = {
-   vibrant:   { text: "#FFFFFF", shadow: "#000000", gradient: "rgba(0,0,0,0.65)" },
-   sunset:    { text: "#FFFFFF", shadow: "#1a0a00", gradient: "rgba(30,10,0,0.60)" },
-   forest:    { text: "#FFFFFF", shadow: "#001a00", gradient: "rgba(0,20,0,0.60)" },
-   neon:      { text: "#00FFFF", shadow: "#000000", gradient: "rgba(0,0,20,0.65)" },
-   purple:    { text: "#FFFFFF", shadow: "#1a001a", gradient: "rgba(20,0,30,0.60)" },
-   monochrome:{ text: "#FFFFFF", shadow: "#000000", gradient: "rgba(0,0,0,0.65)" },
-   ocean:     { text: "#FFFFFF", shadow: "#001a33", gradient: "rgba(0,15,30,0.60)" },
-   pastel:    { text: "#1a1a2e", shadow: "#FFFFFF", gradient: "rgba(255,255,255,0.50)" },
-};
+interface ITextLine {
+   text: string;
+   color: string;            // hex, e.g. "#FFFFFF" or "#FFD700"
+   fontSizeMultiplier: number; // relative to base font size, e.g. 1.0, 1.3, 0.8
+   isHighlighted: boolean;   // draw vibrant glow/outline highlight
+}
 
-// --- Helper: Build the AI prompt (NO text in image) ---
+interface ILayoutPlan {
+   layout_style: "split_right" | "split_left" | "center";
+   image_prompt: string;     // composition-aware background image prompt
+   text_lines: ITextLine[];  // array of text chunks to draw
+   text_tilt: number;        // rotation degrees, e.g. -5 to 5
+   text_alignment: "left" | "right" | "center";
+   badges: string[];         // e.g. ["growth_arrow", "rating", "youtube_play"]
+}
 
-function buildImagePrompt(
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 1 — AI Layout Planner: Ask Gemini to design the composition
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function analyzeTitleAndPlanLayout(
    title: string,
    user_prompt: string,
    style: string,
    color_scheme: string,
-): string {
+): Promise<ILayoutPlan> {
    const styleDesc = stylePrompts[style as keyof typeof stylePrompts] || stylePrompts["Bold & Graphic"];
-   const colorDesc = colorSchemeDescriptions[color_scheme as keyof typeof colorSchemeDescriptions] || "";
+   const colorDesc = colorSchemeDescriptions[color_scheme as keyof typeof colorSchemeDescriptions] || "vibrant and energetic";
 
-   let prompt = `A highly professional, premium YouTube thumbnail background image. Style: ${styleDesc}.`;
+   const plannerPrompt = `You are a world-class YouTube thumbnail designer specialising in high Click-Through-Rate (CTR) compositions.
 
-   // Theme from title
-   prompt += ` The theme or topic of this thumbnail is: "${title}".`;
+Given the following YouTube video details, design an optimal thumbnail layout plan and return it as a single, valid JSON object with NO markdown, NO code fences, and NO commentary around it.
 
-   // Color scheme
-   if (colorDesc) {
-      prompt += ` Color palette: ${colorDesc}.`;
+Video Title: "${title}"
+User Description: "${user_prompt || "No extra details provided."}"
+Visual Style: ${styleDesc}
+Color Scheme: ${colorDesc}
+
+Design Rules:
+1. layout_style: Choose "split_left" (text on left, subject on right), "split_right" (text on right, subject on left), or "center" (subject centred, text bottom). Prefer split layouts for action/tutorial topics.
+2. image_prompt: A precise, text-free background image prompt that directs the AI image generator. Include where to leave empty space for text (e.g., "leave the left third of the frame empty and uncluttered for text overlay"). ABSOLUTELY NO TEXT in the image.
+3. text_lines: Break the title into 2–4 dramatic chunks. Each chunk must have:
+   - text: the chunk (ALL CAPS, punchy)
+   - color: a hex code — use pure white (#FFFFFF), bright yellow (#FFD700), neon cyan (#00FFFF), or electric red (#FF3B3B)
+   - fontSizeMultiplier: between 0.8 and 1.4 (key action words get 1.3–1.4)
+   - isHighlighted: true for key action words (adds glow effect and thick coloured outline)
+4. text_tilt: A slight rotation in degrees between -6 and 6. Use 0 for center layouts.
+5. text_alignment: "left", "right", or "center" — must match layout_style.
+6. badges: An array of 0–2 badge names from: "growth_arrow", "rating", "youtube_play". Add "growth_arrow" for growth/money topics, "youtube_play" for entertainment/tutorial topics, "rating" for review/comparison topics. Leave empty [] if none fit.
+
+Respond with ONLY the JSON object. Example format:
+{
+  "layout_style": "split_left",
+  "image_prompt": "...",
+  "text_lines": [
+    { "text": "GROW", "color": "#FFD700", "fontSizeMultiplier": 1.4, "isHighlighted": true },
+    { "text": "YOUR CHANNEL", "color": "#FFFFFF", "fontSizeMultiplier": 1.0, "isHighlighted": false },
+    { "text": "10X FASTER", "color": "#FF3B3B", "fontSizeMultiplier": 1.2, "isHighlighted": true }
+  ],
+  "text_tilt": -4,
+  "text_alignment": "left",
+  "badges": ["growth_arrow"]
+}`;
+
+   console.log(`[Layout Planner] Analyzing title with Gemini...`);
+
+   try {
+      const response = await ai.models.generateContent({
+         model: "gemini-2.0-flash",
+         contents: plannerPrompt,
+         config: { temperature: 0.8 },
+      });
+
+      const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // Strip any accidental markdown code fences
+      const cleanJson = rawText.replace(/```json|```/g, "").trim();
+      const plan: ILayoutPlan = JSON.parse(cleanJson);
+
+      // Validate required fields — fall back to safe defaults
+      if (!plan.layout_style) plan.layout_style = "center";
+      if (!plan.text_lines || plan.text_lines.length === 0) {
+         plan.text_lines = [{ text: title.toUpperCase(), color: "#FFFFFF", fontSizeMultiplier: 1.0, isHighlighted: false }];
+      }
+      if (typeof plan.text_tilt !== "number") plan.text_tilt = 0;
+      if (!plan.text_alignment) plan.text_alignment = "center";
+      if (!Array.isArray(plan.badges)) plan.badges = [];
+
+      console.log(`[Layout Planner] Plan: layout=${plan.layout_style}, tilt=${plan.text_tilt}°, badges=[${plan.badges.join(",")}]`);
+      return plan;
+   } catch (err: any) {
+      console.warn(`[Layout Planner] Failed to parse AI plan: ${err.message}. Using safe fallback.`);
+      // Safe fallback plan
+      return {
+         layout_style: "center",
+         image_prompt: `A professional YouTube thumbnail background for: "${title}". ${styleDesc}. ${colorDesc}. Leave the lower third clear for text overlay. NO TEXT in the image.`,
+         text_lines: [{ text: title.toUpperCase(), color: "#FFFFFF", fontSizeMultiplier: 1.0, isHighlighted: false }],
+         text_tilt: 0,
+         text_alignment: "center",
+         badges: [],
+      };
    }
-
-   // User's composition details
-   if (user_prompt) {
-      prompt += ` Core composition details: ${user_prompt}.`;
-   }
-
-   // CRITICAL: No text instruction — repeated and very aggressive
-   prompt += ` ABSOLUTELY NO TEXT IN THE IMAGE. No letters, no words, no numbers, no typography, no titles, no watermarks, no signs, no labels, no captions, no writing of any kind anywhere in the image. This is critically important — the image must be 100% text-free. If there is a whiteboard, screen, or sign in the scene, it must be blank/empty. Arrange elements with a high-CTR composition, leave clear space in the lower third for text to be overlaid later. Professional lighting, glowing accents, and high-impact design details.`;
-
-   return prompt;
 }
 
-// --- Helper: Generate image via Gemini 2.0 Flash (FREE tier) ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 2 — Image Generation
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function generateWithGemini(prompt: string): Promise<Buffer> {
    console.log(`[Gemini] Generating image with gemini-2.0-flash-preview-image-generation...`);
@@ -96,23 +162,16 @@ async function generateWithGemini(prompt: string): Promise<Buffer> {
       },
    });
 
-   // Find the image part in the response
    const parts = response.candidates?.[0]?.content?.parts;
-   if (!parts) {
-      throw new Error("No content parts returned from Gemini");
-   }
+   if (!parts) throw new Error("No content parts returned from Gemini");
 
    const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith("image/"));
-   if (!imagePart?.inlineData?.data) {
-      throw new Error("No image data found in Gemini response");
-   }
+   if (!imagePart?.inlineData?.data) throw new Error("No image data found in Gemini response");
 
    const buffer = Buffer.from(imagePart.inlineData.data, "base64");
-   console.log(`[Gemini] Successfully generated image (${(buffer.length / 1024).toFixed(1)} KB)`);
+   console.log(`[Gemini] Image generated (${(buffer.length / 1024).toFixed(1)} KB)`);
    return buffer;
 }
-
-// --- Helper: Fallback to Pollinations SDXL (free, unlimited) ---
 
 async function generateWithSDXL(prompt: string, width: number, height: number): Promise<Buffer> {
    const sdxlUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
@@ -124,145 +183,278 @@ async function generateWithSDXL(prompt: string, width: number, height: number): 
    console.log(`[SDXL Fallback] Generating image via Pollinations SDXL...`);
 
    const imageResponse = await fetch(sdxlUrl, {
-      headers: {
-         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-      }
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
    });
 
-   if (!imageResponse.ok) {
-      throw new Error(`SDXL API returned status code ${imageResponse.status}`);
-   }
+   if (!imageResponse.ok) throw new Error(`SDXL API returned status code ${imageResponse.status}`);
 
    const arrayBuffer = await imageResponse.arrayBuffer();
    const buffer = Buffer.from(arrayBuffer);
-   console.log(`[SDXL Fallback] Successfully generated image (${(buffer.length / 1024).toFixed(1)} KB)`);
+   console.log(`[SDXL Fallback] Image generated (${(buffer.length / 1024).toFixed(1)} KB)`);
    return buffer;
 }
 
-// --- Helper: Overlay title text onto image using sharp ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 3 — SVG Dynamic Layout Overlay Engine
+// ─────────────────────────────────────────────────────────────────────────────
 
-async function overlayTextOnImage(
+function escapeXml(s: string): string {
+   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+/** Render the growth arrow badge SVG elements */
+function renderGrowthArrow(x: number, y: number, scale: number = 1): string {
+   const s = scale * 60;
+   return `
+   <g transform="translate(${x}, ${y})">
+      <!-- Arrow shaft -->
+      <line x1="${s * 0.1}" y1="${s * 0.85}" x2="${s * 0.75}" y2="${s * 0.15}"
+            stroke="#FF4500" stroke-width="${s * 0.12}" stroke-linecap="round"/>
+      <!-- Arrow head -->
+      <polygon points="${s * 0.75},${s * 0.15} ${s * 0.48},${s * 0.20} ${s * 0.72},${s * 0.42}"
+               fill="#FF4500"/>
+      <!-- Neon glow -->
+      <line x1="${s * 0.1}" y1="${s * 0.85}" x2="${s * 0.75}" y2="${s * 0.15}"
+            stroke="#FF6A00" stroke-width="${s * 0.06}" stroke-linecap="round" opacity="0.6" filter="url(#glowBadge)"/>
+      <!-- Small trendline dots -->
+      <circle cx="${s * 0.15}" cy="${s * 0.80}" r="${s * 0.07}" fill="#FFD700"/>
+      <circle cx="${s * 0.35}" cy="${s * 0.58}" r="${s * 0.07}" fill="#FFD700"/>
+      <circle cx="${s * 0.55}" cy="${s * 0.38}" r="${s * 0.07}" fill="#FFD700"/>
+   </g>`;
+}
+
+/** Render the golden star rating badge SVG elements */
+function renderRating(x: number, y: number, scale: number = 1): string {
+   const s = scale * 70;
+   // 5-point star path centred at (s/2, s/2)
+   const cx = s / 2, cy = s / 2, outerR = s * 0.45, innerR = s * 0.18;
+   const points: string[] = [];
+   for (let i = 0; i < 10; i++) {
+      const angle = (Math.PI / 5) * i - Math.PI / 2;
+      const r = i % 2 === 0 ? outerR : innerR;
+      points.push(`${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`);
+   }
+   const starPts = points.join(" ");
+   return `
+   <g transform="translate(${x}, ${y})">
+      <polygon points="${starPts}" fill="#FFD700" stroke="#FF8C00" stroke-width="${s * 0.03}" filter="url(#glowBadge)"/>
+      <text x="${cx}" y="${cy + s * 0.08}" text-anchor="middle" dominant-baseline="middle"
+            font-family="'Impact','Arial Black',sans-serif" font-size="${s * 0.28}" font-weight="900"
+            fill="#1a1a1a">4.9</text>
+   </g>`;
+}
+
+/** Render the YouTube play button badge SVG elements */
+function renderYoutubePlay(x: number, y: number, scale: number = 1): string {
+   const w = scale * 110, h = scale * 78;
+   const rx = w * 0.18;
+   return `
+   <g transform="translate(${x}, ${y})">
+      <!-- Red rounded rectangle -->
+      <rect x="0" y="0" width="${w}" height="${h}" rx="${rx}" ry="${rx}"
+            fill="#FF0000" opacity="0.92" filter="url(#glowBadge)"/>
+      <!-- White play triangle -->
+      <polygon points="${w * 0.35},${h * 0.22} ${w * 0.78},${h * 0.50} ${w * 0.35},${h * 0.78}"
+               fill="#FFFFFF"/>
+   </g>`;
+}
+
+async function overlayDynamicLayout(
    imageBuffer: Buffer,
-   title: string,
+   plan: ILayoutPlan,
    width: number,
    height: number,
-   color_scheme: string,
    text_overlay: boolean,
 ): Promise<Buffer> {
    // If text overlay is disabled, just resize and return
    if (!text_overlay) {
-      return sharp(imageBuffer)
-         .resize(width, height, { fit: "cover" })
-         .png()
-         .toBuffer();
+      return sharp(imageBuffer).resize(width, height, { fit: "cover" }).png().toBuffer();
    }
 
-   const colors = colorSchemeTextColors[color_scheme] || colorSchemeTextColors.vibrant;
+   const { layout_style, text_lines, text_tilt, text_alignment, badges } = plan;
 
-   // Calculate responsive font size based on title length and image width
-   let fontSize = Math.floor(width / 14);
-   if (title.length > 40) fontSize = Math.floor(width / 20);
-   else if (title.length > 25) fontSize = Math.floor(width / 17);
+   // ── Typography geometry ──
+   const baseFontSize = Math.floor(width / 15);
+   const padding = Math.floor(width * 0.055);
+   const lineSpacing = 1.20;
 
-   const lineHeight = fontSize * 1.25;
-   const maxTextWidth = width * 0.85;
-   const padding = Math.floor(width * 0.06);
-   const bottomMargin = Math.floor(height * 0.08);
+   // Determine text X anchor & SVG text-anchor based on layout
+   let textX: number;
+   let svgTextAnchor: string;
+   let textMaxWidth: number;
 
-   // Word-wrap the title into lines
-   const words = title.split(" ");
-   const lines: string[] = [];
-   let currentLine = "";
+   if (layout_style === "split_left" || text_alignment === "left") {
+      textX = padding;
+      svgTextAnchor = "start";
+      textMaxWidth = width * 0.48;
+   } else if (layout_style === "split_right" || text_alignment === "right") {
+      textX = width - padding;
+      svgTextAnchor = "end";
+      textMaxWidth = width * 0.48;
+   } else {
+      // center
+      textX = width / 2;
+      svgTextAnchor = "middle";
+      textMaxWidth = width * 0.85;
+   }
 
-   // Estimate ~0.6em per character for approximation
-   const charWidth = fontSize * 0.55;
+   // ── Calculate Y positions — vertically centred in text zone ──
+   const totalLines = text_lines.length;
+   const totalTextHeight = text_lines.reduce((acc, line) => {
+      return acc + baseFontSize * line.fontSizeMultiplier * lineSpacing;
+   }, 0);
 
-   for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      if (testLine.length * charWidth > maxTextWidth && currentLine) {
-         lines.push(currentLine);
-         currentLine = word;
+   // For split layouts: centre vertically; for center layout: position at bottom third
+   let startY: number;
+   if (layout_style === "center") {
+      startY = height * 0.62 - totalTextHeight / 2;
+   } else {
+      startY = height / 2 - totalTextHeight / 2;
+   }
+
+   // ── Build SVG text elements ──
+   const svgTextElements: string[] = [];
+   let currentY = startY;
+
+   for (const line of text_lines) {
+      const fs = Math.floor(baseFontSize * line.fontSizeMultiplier);
+      const strokeW = Math.max(3, Math.floor(fs / 10));
+      const escaped = escapeXml(line.text.toUpperCase());
+      const lineY = currentY + fs;
+
+      if (line.isHighlighted) {
+         // Thick coloured glow outline for highlighted words
+         svgTextElements.push(`
+         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
+               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+               font-size="${fs}" font-weight="900" letter-spacing="2"
+               fill="none" stroke="${line.color}" stroke-width="${strokeW * 4}" stroke-linejoin="round"
+               opacity="0.55" filter="url(#glowText)">${escaped}</text>`);
+         // Black outer stroke for contrast
+         svgTextElements.push(`
+         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
+               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+               font-size="${fs}" font-weight="900" letter-spacing="2"
+               fill="none" stroke="#000000" stroke-width="${strokeW * 2}" stroke-linejoin="round">${escaped}</text>`);
+         // Fill with the highlight colour
+         svgTextElements.push(`
+         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
+               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+               font-size="${fs}" font-weight="900" letter-spacing="2"
+               fill="${line.color}">${escaped}</text>`);
       } else {
-         currentLine = testLine;
+         // Standard text: black outline + white fill
+         svgTextElements.push(`
+         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
+               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+               font-size="${fs}" font-weight="900" letter-spacing="2"
+               fill="none" stroke="#000000" stroke-width="${strokeW * 2.5}" stroke-linejoin="round"
+               opacity="0.8">${escaped}</text>`);
+         svgTextElements.push(`
+         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
+               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+               font-size="${fs}" font-weight="900" letter-spacing="2"
+               fill="${line.color}">${escaped}</text>`);
       }
+
+      currentY += fs * lineSpacing;
    }
-   if (currentLine) lines.push(currentLine);
 
-   // Build SVG text overlay — positioned higher to avoid being cut off
-   const textBlockHeight = lines.length * lineHeight + padding * 2;
-   const textBottomY = height - bottomMargin;
-   const gradientStartY = textBottomY - textBlockHeight - padding;
+   // ── Tilt: wrap all text in a rotate group ──
+   const tiltAngle = text_tilt || 0;
+   // Pivot point for rotation: near the text anchor
+   const pivotX = layout_style === "center" ? width / 2 : (layout_style === "split_left" ? padding : width - padding);
+   const pivotY = startY + totalTextHeight / 2;
 
-   // Escape XML special characters
-   const escapeXml = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+   const tiltedTextGroup = `
+   <g transform="rotate(${tiltAngle}, ${pivotX}, ${pivotY})">
+      ${svgTextElements.join("\n")}
+   </g>`;
 
-   // Stroke thickness scales with font size
-   const strokeWidth = Math.max(2, Math.floor(fontSize / 18));
+   // ── Dark gradient vignette behind text area ──
+   let gradientDef: string;
+   let gradientRect: string;
 
-   const svgLines = lines
-      .map((line, i) => {
-         const y = textBottomY - textBlockHeight + padding + (i + 1) * lineHeight;
-         const escapedLine = escapeXml(line.toUpperCase());
-         return `
-            <text x="${width / 2}" y="${y}" text-anchor="middle"
-                  font-family="'Impact', 'Arial Black', 'Helvetica Neue', sans-serif" font-size="${fontSize}" font-weight="900"
-                  letter-spacing="2"
-                  fill="none" stroke="${colors.shadow}" stroke-width="${strokeWidth * 3}" stroke-linejoin="round"
-                  opacity="0.5"
-                  filter="url(#glow)">
-               ${escapedLine}
-            </text>
-            <text x="${width / 2}" y="${y}" text-anchor="middle"
-                  font-family="'Impact', 'Arial Black', 'Helvetica Neue', sans-serif" font-size="${fontSize}" font-weight="900"
-                  letter-spacing="2"
-                  fill="none" stroke="${colors.shadow}" stroke-width="${strokeWidth * 2}" stroke-linejoin="round">
-               ${escapedLine}
-            </text>
-            <text x="${width / 2}" y="${y}" text-anchor="middle"
-                  font-family="'Impact', 'Arial Black', 'Helvetica Neue', sans-serif" font-size="${fontSize}" font-weight="900"
-                  letter-spacing="2"
-                  fill="${colors.text}">
-               ${escapedLine}
-            </text>`;
-      })
-      .join("\n");
+   if (layout_style === "split_left") {
+      gradientDef = `<linearGradient id="textGrad" x1="0" y1="0" x2="1" y2="0">
+         <stop offset="0%" stop-color="rgba(0,0,0,0.72)"/>
+         <stop offset="58%" stop-color="rgba(0,0,0,0.30)"/>
+         <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </linearGradient>`;
+      gradientRect = `<rect width="${width * 0.55}" height="${height}" fill="url(#textGrad)"/>`;
+   } else if (layout_style === "split_right") {
+      gradientDef = `<linearGradient id="textGrad" x1="1" y1="0" x2="0" y2="0">
+         <stop offset="0%" stop-color="rgba(0,0,0,0.72)"/>
+         <stop offset="58%" stop-color="rgba(0,0,0,0.30)"/>
+         <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </linearGradient>`;
+      gradientRect = `<rect x="${width * 0.45}" width="${width * 0.55}" height="${height}" fill="url(#textGrad)"/>`;
+   } else {
+      // center — bottom gradient
+      gradientDef = `<linearGradient id="textGrad" x1="0" y1="0" x2="0" y2="1">
+         <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+         <stop offset="52%" stop-color="rgba(0,0,0,0.38)"/>
+         <stop offset="100%" stop-color="rgba(0,0,0,0.78)"/>
+      </linearGradient>`;
+      gradientRect = `<rect width="${width}" height="${height}" fill="url(#textGrad)"/>`;
+   }
 
+   // ── Badge placement ──
+   const badgeSvgParts: string[] = [];
+   const badgeScale = width / 1280;
+
+   if (badges.includes("growth_arrow")) {
+      // Top-right corner
+      badgeSvgParts.push(renderGrowthArrow(width - 140 * badgeScale, 20 * badgeScale, badgeScale));
+   }
+   if (badges.includes("rating")) {
+      // Bottom-right corner
+      badgeSvgParts.push(renderRating(width - 110 * badgeScale, height - 110 * badgeScale, badgeScale));
+   }
+   if (badges.includes("youtube_play")) {
+      // Bottom-left corner (only if not in split_left layout)
+      const byX = layout_style === "split_left" ? width * 0.52 : 20 * badgeScale;
+      badgeSvgParts.push(renderYoutubePlay(byX, height - 100 * badgeScale, badgeScale));
+   }
+
+   // ── Compose final SVG ──
    const svgOverlay = `
-   <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-         <filter id="glow" x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation="6" result="blur"/>
-            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-         </filter>
-         <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="transparent"/>
-            <stop offset="${Math.max(0, Math.floor((gradientStartY / height) * 100) - 10)}%" stop-color="transparent"/>
-            <stop offset="100%" stop-color="${colors.gradient}"/>
-         </linearGradient>
-      </defs>
-      <rect width="${width}" height="${height}" fill="url(#grad)"/>
-      ${svgLines}
-   </svg>`;
+<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+   <defs>
+      ${gradientDef}
+      <filter id="glowText" x="-20%" y="-20%" width="140%" height="140%">
+         <feGaussianBlur stdDeviation="5" result="blur"/>
+         <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+      <filter id="glowBadge" x="-30%" y="-30%" width="160%" height="160%">
+         <feGaussianBlur stdDeviation="4" result="blur"/>
+         <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+   </defs>
 
-   // Composite: resize background + overlay text SVG
+   <!-- Dark gradient vignette -->
+   ${gradientRect}
+
+   <!-- Tilted text block -->
+   ${tiltedTextGroup}
+
+   <!-- Badges -->
+   ${badgeSvgParts.join("\n")}
+</svg>`;
+
    const result = await sharp(imageBuffer)
       .resize(width, height, { fit: "cover" })
-      .composite([
-         {
-            input: Buffer.from(svgOverlay),
-            top: 0,
-            left: 0,
-         },
-      ])
+      .composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }])
       .png()
       .toBuffer();
 
-   console.log(`[Sharp] Text overlay applied. Final size: ${(result.length / 1024).toFixed(1)} KB`);
+   console.log(`[Sharp] Dynamic layout applied. Final size: ${(result.length / 1024).toFixed(1)} KB`);
    return result;
 }
 
-// --- Main Controller: Generate Thumbnail ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Controller: Generate Thumbnail
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const generateThumbnail = async (req: Request, res: Response) => {
    try {
@@ -301,14 +493,34 @@ export const generateThumbnail = async (req: Request, res: Response) => {
          height = 1280;
       }
 
-      // Build the AI prompt (NO text in image)
-      const imagePrompt = buildImagePrompt(title, user_prompt, style, color_scheme);
-      console.log(`\n--- Thumbnail Generation Started ---`);
-      console.log(`Title: "${title}" | Style: ${style} | Colors: ${color_scheme}`);
+      console.log(`\n=== Thumbnail Generation Started ===`);
+      console.log(`Title: "${title}" | Style: ${style} | Colors: ${color_scheme} | TextOverlay: ${text_overlay}`);
 
+      // ── Step 1: AI designs the layout plan ──
+      let layoutPlan: ILayoutPlan;
+      if (text_overlay) {
+         layoutPlan = await analyzeTitleAndPlanLayout(title, user_prompt, style, color_scheme);
+      } else {
+         // Skip AI planning if overlay is disabled
+         const styleDesc = stylePrompts[style as keyof typeof stylePrompts] || stylePrompts["Bold & Graphic"];
+         const colorDesc = colorSchemeDescriptions[color_scheme as keyof typeof colorSchemeDescriptions] || "";
+         layoutPlan = {
+            layout_style: "center",
+            image_prompt: `A highly professional YouTube thumbnail background. Style: ${styleDesc}. Color: ${colorDesc}. Topic: "${title}". NO TEXT in the image. Leave lower third clear. ABSOLUTELY NO LETTERS, WORDS, or TYPOGRAPHY in the image.`,
+            text_lines: [],
+            text_tilt: 0,
+            text_alignment: "center",
+            badges: [],
+         };
+      }
+
+      // ── Step 2: Build the final image prompt (use AI's composition-aware prompt) ──
+      const imagePrompt = layoutPlan.image_prompt +
+         " ABSOLUTELY NO TEXT, LETTERS, WORDS, NUMBERS, WATERMARKS, SIGNS, OR TYPOGRAPHY ANYWHERE IN THE IMAGE. The image must be 100% text-free.";
+
+      // ── Step 3: Generate the background image ──
       let rawImageBuffer: Buffer;
 
-      // Step 1: Generate the background image
       try {
          rawImageBuffer = await generateWithGemini(imagePrompt);
       } catch (geminiError: any) {
@@ -317,7 +529,6 @@ export const generateThumbnail = async (req: Request, res: Response) => {
             rawImageBuffer = await generateWithSDXL(imagePrompt, width, height);
          } catch (sdxlError: any) {
             console.warn(`[SDXL] Failed: ${sdxlError.message}. Using stock photo fallback...`);
-            // Final fallback: themed stock photo
             const stopWords = new Set([
                "the", "a", "an", "is", "for", "to", "my", "awesome", "youtube", "video", "in", "with",
                "and", "how", "create", "make", "of", "on", "at", "by", "this", "that", "it", "or", "from"
@@ -333,19 +544,18 @@ export const generateThumbnail = async (req: Request, res: Response) => {
          }
       }
 
-      // Step 2: Overlay title text using sharp
-      const finalBuffer = await overlayTextOnImage(
+      // ── Step 4: Apply the dynamic SVG layout overlay ──
+      const finalBuffer = await overlayDynamicLayout(
          rawImageBuffer,
-         title,
+         layoutPlan,
          width,
          height,
-         color_scheme,
          text_overlay,
       );
 
-      console.log(`--- Thumbnail Generation Complete ---\n`);
+      console.log(`=== Thumbnail Generation Complete ===\n`);
 
-      // Save to disk, upload to Cloudinary, clean up
+      // ── Step 5: Save, upload to Cloudinary, clean up ──
       const filename = `final-output-${Date.now()}.png`;
       const filePath = path.join("images", filename);
 
@@ -371,7 +581,9 @@ export const generateThumbnail = async (req: Request, res: Response) => {
    }
 };
 
-// --- Controller: Delete Thumbnail ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Controller: Delete Thumbnail
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const deleteThumbnail = async (req: Request, res: Response) => {
    try {
