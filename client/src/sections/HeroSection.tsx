@@ -3,6 +3,7 @@ import { CheckIcon, ChevronRightIcon, VideoIcon } from "lucide-react";
 import TiltedImage from "../components/TiltImage";
 import { motion } from "motion/react";
 import { useNavigate, Link } from "react-router-dom";
+import { span } from "motion/react-client";
 
 export default function HeroSection() {
 
