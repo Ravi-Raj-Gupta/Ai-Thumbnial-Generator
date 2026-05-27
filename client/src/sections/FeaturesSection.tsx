@@ -2,6 +2,7 @@
 import SectionTitle from "../components/SectionTitle";
 import { ArrowUpRight } from "lucide-react";
 import { motion } from "motion/react";
+import { Link } from "react-router-dom";
 import { featuresData } from "../data/features";
 import type { IFeature } from "../types";
 
@@ -60,10 +61,10 @@ export default function FeaturesSection() {
                         <p className="text-slate-300 mt-2">
                            Learn more about the product
                         </p>
-                        <a href="https://prebuiltui.com" className="group flex items-center gap-2 mt-4 text-pink-600 hover:text-pink-700 transition">
+                        <Link to="/generate" className="group flex items-center gap-2 mt-4 text-pink-600 hover:text-pink-700 transition">
                             Start generating free
                             <ArrowUpRight className="size-5 group-hover:translate-x-0.5 transition duration-300" />
-                        </a>
+                        </Link>
                     </motion.div>
                 </div>
             </div>

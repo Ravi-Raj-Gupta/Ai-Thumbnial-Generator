@@ -1,4 +1,3 @@
-import { DribbbleIcon, LinkedinIcon, TwitterIcon, YoutubeIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
 import { footerData } from "../data/footer";
@@ -52,24 +51,6 @@ export default function Footer() {
             <p className="max-w-60">
                Making every creator feel valued, no matter the size of the audience.
             </p>
-            <div className="mt-3 flex items-center gap-4">
-               <a href="https://dribbble.com/prebuiltui" target="_blank" rel="noreferrer">
-                  <DribbbleIcon className="size-5 hover:text-pink-500" />
-               </a>
-               <a
-                  href="https://www.linkedin.com/company/prebuiltui"
-                  target="_blank"
-                  rel="noreferrer"
-               >
-                  <LinkedinIcon className="size-5 hover:text-pink-500" />
-               </a>
-               <a href="https://x.com/prebuiltui" target="_blank" rel="noreferrer">
-                  <TwitterIcon className="size-5 hover:text-pink-500" />
-               </a>
-               <a href="https://www.youtube.com/@prebuiltui" target="_blank" rel="noreferrer">
-                  <YoutubeIcon className="size-6 hover:text-pink-500" />
-               </a>
-            </div>
             <p className="mt-3 text-center">
                &copy; {new Date().getFullYear()} AI Thumbnail Generator | Ravi Raj
             </p>

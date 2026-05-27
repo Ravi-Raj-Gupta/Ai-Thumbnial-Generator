@@ -77,8 +77,8 @@ function buildImagePrompt(
       prompt += ` Core composition details: ${user_prompt}.`;
    }
 
-   // CRITICAL: No text instruction
-   prompt += ` IMPORTANT: Do NOT include any text, letters, words, typography, or watermarks in the image. The image should be a clean background/scene only with no text at all. Arrange elements with a high-CTR composition, leave space at the bottom or center for text to be added later. Professional lighting, glowing accents, and high-impact design details.`;
+   // CRITICAL: No text instruction — repeated and very aggressive
+   prompt += ` ABSOLUTELY NO TEXT IN THE IMAGE. No letters, no words, no numbers, no typography, no titles, no watermarks, no signs, no labels, no captions, no writing of any kind anywhere in the image. This is critically important — the image must be 100% text-free. If there is a whiteboard, screen, or sign in the scene, it must be blank/empty. Arrange elements with a high-CTR composition, leave clear space in the lower third for text to be overlaid later. Professional lighting, glowing accents, and high-impact design details.`;
 
    return prompt;
 }
@@ -165,8 +165,9 @@ async function overlayTextOnImage(
    else if (title.length > 25) fontSize = Math.floor(width / 17);
 
    const lineHeight = fontSize * 1.25;
-   const maxTextWidth = width * 0.88;
+   const maxTextWidth = width * 0.85;
    const padding = Math.floor(width * 0.06);
+   const bottomMargin = Math.floor(height * 0.08);
 
    // Word-wrap the title into lines
    const words = title.split(" ");
@@ -187,27 +188,40 @@ async function overlayTextOnImage(
    }
    if (currentLine) lines.push(currentLine);
 
-   // Build SVG text overlay
+   // Build SVG text overlay — positioned higher to avoid being cut off
    const textBlockHeight = lines.length * lineHeight + padding * 2;
-   const gradientStartY = height - textBlockHeight - padding;
+   const textBottomY = height - bottomMargin;
+   const gradientStartY = textBottomY - textBlockHeight - padding;
 
    // Escape XML special characters
    const escapeXml = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+   // Stroke thickness scales with font size
+   const strokeWidth = Math.max(2, Math.floor(fontSize / 18));
+
    const svgLines = lines
       .map((line, i) => {
-         const y = height - textBlockHeight + padding + (i + 1) * lineHeight;
-         const escapedLine = escapeXml(line);
+         const y = textBottomY - textBlockHeight + padding + (i + 1) * lineHeight;
+         const escapedLine = escapeXml(line.toUpperCase());
          return `
-            <text x="${padding}" y="${y}" 
-                  font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold"
-                  fill="${colors.shadow}" opacity="0.7"
-                  filter="url(#shadow)">
+            <text x="${width / 2}" y="${y}" text-anchor="middle"
+                  font-family="'Impact', 'Arial Black', 'Helvetica Neue', sans-serif" font-size="${fontSize}" font-weight="900"
+                  letter-spacing="2"
+                  fill="none" stroke="${colors.shadow}" stroke-width="${strokeWidth * 3}" stroke-linejoin="round"
+                  opacity="0.5"
+                  filter="url(#glow)">
                ${escapedLine}
             </text>
-            <text x="${padding}" y="${y}" 
-                  font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold"
+            <text x="${width / 2}" y="${y}" text-anchor="middle"
+                  font-family="'Impact', 'Arial Black', 'Helvetica Neue', sans-serif" font-size="${fontSize}" font-weight="900"
+                  letter-spacing="2"
+                  fill="none" stroke="${colors.shadow}" stroke-width="${strokeWidth * 2}" stroke-linejoin="round">
+               ${escapedLine}
+            </text>
+            <text x="${width / 2}" y="${y}" text-anchor="middle"
+                  font-family="'Impact', 'Arial Black', 'Helvetica Neue', sans-serif" font-size="${fontSize}" font-weight="900"
+                  letter-spacing="2"
                   fill="${colors.text}">
                ${escapedLine}
             </text>`;
@@ -217,12 +231,13 @@ async function overlayTextOnImage(
    const svgOverlay = `
    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
-         <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
-            <feDropShadow dx="3" dy="3" stdDeviation="5" flood-color="${colors.shadow}" flood-opacity="0.8"/>
+         <filter id="glow" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation="6" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
          </filter>
          <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="transparent"/>
-            <stop offset="${Math.max(0, Math.floor((gradientStartY / height) * 100) - 5)}%" stop-color="transparent"/>
+            <stop offset="${Math.max(0, Math.floor((gradientStartY / height) * 100) - 10)}%" stop-color="transparent"/>
             <stop offset="100%" stop-color="${colors.gradient}"/>
          </linearGradient>
       </defs>

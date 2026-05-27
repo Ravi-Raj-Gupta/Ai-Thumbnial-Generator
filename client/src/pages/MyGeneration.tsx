@@ -91,18 +91,28 @@ const MyGeneration = () => {
       }
    };
 
-   const handleDownload = (event: MouseEvent<HTMLButtonElement>, thumb: IThumbnail) => {
+   const handleDownload = async (event: MouseEvent<HTMLButtonElement>, thumb: IThumbnail) => {
       event.stopPropagation();
       if (!thumb.image_url) {
          return;
       }
 
-      const link = document.createElement("a");
-      link.href = thumb.image_url;
-      link.download = `${thumb.title.replace(/\s+/g, "-").toLowerCase() || "thumbnail"}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+         const response = await fetch(thumb.image_url);
+         const blob = await response.blob();
+         const blobUrl = URL.createObjectURL(blob);
+
+         const link = document.createElement("a");
+         link.href = blobUrl;
+         link.download = `${thumb.title.replace(/\s+/g, "-").toLowerCase() || "thumbnail"}.png`;
+         document.body.appendChild(link);
+         link.click();
+         document.body.removeChild(link);
+
+         URL.revokeObjectURL(blobUrl);
+      } catch {
+         window.open(thumb.image_url, "_blank");
+      }
    };
 
    if (!isLoggedIn) {

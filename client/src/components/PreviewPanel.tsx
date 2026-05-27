@@ -16,15 +16,26 @@ const PreviewPanel = ({
       "9:16": "aspect-[9/16]",
    } as Record<AspectRatio, string>;
 
-   const onDownload = () => {
+   const onDownload = async () => {
       if (!thumbnail?.image_url) return;
 
-      const link = document.createElement("a");
-      link.href = thumbnail.image_url;
-      link.download = `${thumbnail.title.replace(/\s+/g, "-").toLowerCase() || "thumbnail"}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+         const response = await fetch(thumbnail.image_url);
+         const blob = await response.blob();
+         const blobUrl = URL.createObjectURL(blob);
+
+         const link = document.createElement("a");
+         link.href = blobUrl;
+         link.download = `${thumbnail.title.replace(/\s+/g, "-").toLowerCase() || "thumbnail"}.png`;
+         document.body.appendChild(link);
+         link.click();
+         document.body.removeChild(link);
+
+         URL.revokeObjectURL(blobUrl);
+      } catch {
+         // Fallback: open in new tab
+         window.open(thumbnail.image_url, "_blank");
+      }
    };
 
    return (
@@ -51,11 +62,11 @@ const PreviewPanel = ({
                      src={thumbnail.image_url}
                      alt={thumbnail.title}
                   />
-                  <div className="absolute inset-0 flex items-end justify-center bg-black/10 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="absolute inset-0 flex items-end justify-center bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                      <button
                         onClick={onDownload}
                         type="button"
-                        className="mb-6 flex items-center gap-2 rounded-md bg-white/10 px-5 py-2.5 text-xs text-white ring-white/40 backdrop-blur transition-all hover:scale-105 active:scale-95"
+                        className="mb-6 flex items-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-pink-500/25 transition-all hover:scale-105 hover:shadow-pink-500/40 active:scale-95"
                      >
                         <DownloadIcon className="size-4" />
                         Download Thumbnail
