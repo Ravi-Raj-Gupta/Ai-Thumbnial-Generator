@@ -35,11 +35,11 @@ app.use(
 );
 import MongoStore from "connect-mongo";
 
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
 
 app.use(
    session({
-      secret: process.env.SESSION_SECRET as string,
+      secret: (process.env.SESSION_SECRET as string) || "clickframe_default_session_secret_998877",
       resave: false,
       saveUninitialized: false,
       cookie: {
