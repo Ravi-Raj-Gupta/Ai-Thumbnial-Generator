@@ -95,7 +95,7 @@ export default function ContactUs() {
                   </div>
 
                   <div className="space-y-4">
-                     <h1 className="max-w-2xl text-4xl font-bold leading-tight text-white md:text-5xl">
+                     <h1 className="max-w-2xl text-3xl font-medium leading-tight text-white md:text-4xl">
                         Let&apos;s build thumbnails your audience actually clicks.
                      </h1>
                      <p className="max-w-2xl text-base leading-7 text-zinc-300 md:text-lg">
@@ -104,24 +104,26 @@ export default function ContactUs() {
                      </p>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="flex flex-col gap-4">
                      {contactCards.map(({ title, value, description, icon: Icon }) => (
                         <div
                            key={title}
-                           className="rounded-3xl border border-white/10 bg-white/6 p-5 shadow-xl backdrop-blur"
+                           className="flex items-center gap-5 rounded-3xl border border-white/10 bg-white/6 p-5 shadow-xl backdrop-blur transition hover:bg-white/10"
                         >
-                           <div className="mb-4 inline-flex rounded-2xl border border-white/10 bg-white/8 p-3 text-pink-300">
+                           <div className="flex-shrink-0 inline-flex rounded-2xl border border-white/10 bg-white/8 p-3.5 text-pink-300">
                               <Icon className="size-5" />
                            </div>
-                           <h2 className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">
-                              {title}
-                           </h2>
-                           <p className="mt-3 text-base font-semibold text-white">
-                              {value}
-                           </p>
-                           <p className="mt-2 text-sm leading-6 text-zinc-400">
-                              {description}
-                           </p>
+                           <div className="min-w-0 flex-1">
+                              <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400">
+                                 {title}
+                              </h2>
+                              <p className="mt-1 text-base font-semibold text-white break-all">
+                                 {value}
+                              </p>
+                              <p className="mt-1 text-sm leading-5 text-zinc-400">
+                                 {description}
+                              </p>
+                           </div>
                         </div>
                      ))}
                   </div>
