@@ -6,7 +6,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 export default function HeroSection() {
 
-   const navigate = useNavigate()
+    const navigate = useNavigate()
 
     const specialFeatures = [
         "No design skills needed",
@@ -39,7 +39,7 @@ export default function HeroSection() {
                 viewport={{ once: true }}
                 transition={{ type: "spring", stiffness: 240, damping: 70, mass: 1 }}
             >
-                Generate High-CTR Thumbnails <br className="hidden md:block" /> with {" "}
+                Generate High-CTR <br className="hidden md:block" /> Thumbnails with {" "}
                 <span className="move-gradient px-3 rounded-xl text-nowrap">ClickFrame</span>
             </motion.h1>
             <motion.p className="text-base text-center text-slate-200 max-w-lg mt-6"
@@ -48,7 +48,7 @@ export default function HeroSection() {
                 viewport={{ once: true }}
                 transition={{ delay: 0.2, type: "spring", stiffness: 320, damping: 70, mass: 1 }}
             >
-                Stop wasting hours on creating thumbnails for your videos.Get high quality thumbnails in seconds.</motion.p>
+                Stop wasting hours on creating thumbnails for your videos. Get high quality thumbnails in seconds.</motion.p>
             <motion.div className="flex items-center gap-4 mt-8"
                 initial={{ y: 50, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
