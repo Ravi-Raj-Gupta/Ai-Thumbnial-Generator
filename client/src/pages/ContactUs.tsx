@@ -20,7 +20,7 @@ const initialForm: ContactForm = {
 const contactCards = [
    {
       title: "Email support",
-      value: "support@aithumbnailgenerator.dev",
+      value: "support@clickframe.dev",
       description: "Feature help, billing questions, or bug reports.",
       icon: MailIcon,
    },
@@ -76,7 +76,7 @@ export default function ContactUs() {
             body: `Name: ${formData.name}\nEmail: ${formData.email}\n\n${formData.message}`,
          });
 
-         window.location.href = `mailto:support@aithumbnailgenerator.dev?${params.toString()}`;
+         window.location.href = `mailto:support@clickframe.dev?${params.toString()}`;
          setFormData(initialForm);
       } finally {
          setIsSubmitting(false);
