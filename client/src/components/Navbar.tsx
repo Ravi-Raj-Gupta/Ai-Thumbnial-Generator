@@ -25,7 +25,7 @@ export default function Navbar() {
             }}
          >
             <Link to="/">
-               <img src="/logo.svg" alt="logo" className="h-8.5 w-auto" />
+               <img src="/logo.svg" alt="logo" className="h-11 w-auto" />
             </Link>
 
             <div className="hidden md:flex items-center gap-8 transition duration-500">

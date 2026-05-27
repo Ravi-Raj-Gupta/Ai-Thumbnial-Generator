@@ -33,13 +33,13 @@ export default function HeroSection() {
                     </p>
                 </motion.div>
             </Link>
-            <motion.h1 className="text-5xl/17 md:text-6xl/21 font-medium max-w-3xl text-center"
+            <motion.h1 className="text-5xl/17 md:text-6xl/21 font-medium max-w-4xl text-center"
                 initial={{ y: 50, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ type: "spring", stiffness: 240, damping: 70, mass: 1 }}
             >
-                Generate High-CTR Thumbnails with {" "}
+                Generate High-CTR Thumbnails <br className="hidden md:block" /> with {" "}
                 <span className="move-gradient px-3 rounded-xl text-nowrap">ClickFrame</span>
             </motion.h1>
             <motion.p className="text-base text-center text-slate-200 max-w-lg mt-6"
