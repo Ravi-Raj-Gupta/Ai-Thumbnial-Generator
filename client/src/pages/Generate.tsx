@@ -74,17 +74,19 @@ const Generate = () => {
 
    const fetchThumbnail = async () => {
       try {
-         const { data } = await api.get(`/api/user.thumbnail/${id}`);
+         const { data } = await api.get(`/api/user/thumbnail/${id}`);
          setThumbnail(data?.thumbnail as IThumbnail);
          setLoading(!data?.thumbnail?.image_url);
          setAdditionalDetails(data?.thumbnail?.user_prompt);
-         setTitle(data?.thumbnail?.color_scheme)
-         setAspectRatio(data?.thumbnail?.aspect_ratio)
-         setStyle(data?.thumbnail?.style)
-
-      } catch (error : any) {
+         setTitle(data?.thumbnail?.title || "");
+         setAspectRatio(data?.thumbnail?.aspect_ratio);
+         setStyle(data?.thumbnail?.style);
+         if (data?.thumbnail?.color_scheme) {
+            setColorSchemeId(data?.thumbnail?.color_scheme);
+         }
+      } catch (error: any) {
          console.log(error);
-         toast.error(error?.response?.data?.message || error.message )
+         toast.error(error?.response?.data?.message || error.message);
       }
    };
 
@@ -92,18 +94,17 @@ const Generate = () => {
       if (isLoggedIn && id) {
          fetchThumbnail();
       }
-      if(id && loading && isLoggedIn){
+      if (id && loading && isLoggedIn) {
          const interval = setInterval(() => {
-            fetchThumbnail()
-         },5000)
-         return () => clearInterval(interval)
+            fetchThumbnail();
+         }, 5000);
+         return () => clearInterval(interval);
       }
    }, [id, loading, isLoggedIn]);
 
-
    useEffect(() => {
       if (!id && thumbnail) {
-         setThumbnail(null)
+         setThumbnail(null);
       }
    }, [pathname]);
 
