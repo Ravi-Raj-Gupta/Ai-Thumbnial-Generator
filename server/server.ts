@@ -23,6 +23,7 @@ app.set("trust proxy", 1);
 const allowedOrigins = [
    "http://localhost:5173",
    "http://localhost:3000",
+   "https://clickframe-teal.vercel.app",
    process.env.CLIENT_URL,
 ].filter(Boolean) as string[];
 
