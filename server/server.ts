@@ -17,13 +17,24 @@ declare module "express-session" {
 
 const app = express();
 
+// Trust proxy is required for secure cookies to work on Render/Vercel
+app.set("trust proxy", 1);
+
+const allowedOrigins = [
+   "http://localhost:5173",
+   "http://localhost:3000",
+   process.env.CLIENT_URL,
+].filter(Boolean) as string[];
+
 app.use(
    cors({
-      origin: ["http://localhost:5173", "http://localhost:3000"],
+      origin: allowedOrigins,
       credentials: true,
    }),
 );
 import MongoStore from "connect-mongo";
+
+const isProduction = process.env.NODE_ENV === "production";
 
 app.use(
    session({
@@ -32,6 +43,8 @@ app.use(
       saveUninitialized: false,
       cookie: {
          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+         secure: isProduction,
+         sameSite: isProduction ? "none" : "lax",
       },
       store: MongoStore.create({
          mongoUrl: process.env.MONGODB_URI as string,
