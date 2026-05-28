@@ -218,8 +218,43 @@ Respond with ONLY the JSON.`;
    }
 }
 
+async function generateWithGemini(prompt: string, aspect_ratio?: string): Promise<Buffer> {
+   console.log(`[Gemini] Generating image with imagen-3.0-generate-002...`);
+
+   let ar = "16:9";
+   if (aspect_ratio === "1:1") {
+      ar = "1:1";
+   } else if (aspect_ratio === "9:16") {
+      ar = "3:4"; // Imagen 3 supports "1:1", "3:4", "4:3", "9:16", or "16:9"
+   }
+
+   const response = await ai.models.generateImages({
+      model: "imagen-3.0-generate-002",
+      prompt: prompt,
+      config: {
+         numberOfImages: 1,
+         outputMimeType: "image/png",
+         aspectRatio: ar,
+      },
+   });
+
+   const image = response.generatedImages?.[0]?.image;
+   if (!image || !image.imageBytes) {
+      throw new Error("No image bytes returned from Imagen");
+   }
+
+   const buffer = Buffer.from(image.imageBytes, "base64");
+   console.log(`[Gemini] Image generated (${(buffer.length / 1024).toFixed(1)} KB)`);
+   return buffer;
+}
+
 async function generateWithSDXL(prompt: string, width: number, height: number): Promise<Buffer> {
-   const sdxlUrl = `https:
+   const sdxlUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+      prompt,
+   )}?width=${width}&height=${height}&model=sdxl&seed=${Math.floor(
+      Math.random() * 1000000,
+   )}&nologo=true`;
+
    console.log(`[SDXL Fallback] Generating image via Pollinations SDXL...`);
 
    const imageResponse = await fetch(sdxlUrl, {
@@ -612,7 +647,7 @@ async function overlayDynamicLayout(
       </linearGradient>`;
    }
 
-   const svgOverlay = `<svg width="${width}" height="${height}" xmlns="http:
+   const svgOverlay = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
    <defs>
       ${panelGradDef}
       <linearGradient id="centerGrad" x1="0" y1="0" x2="0" y2="1">
@@ -703,7 +738,13 @@ export const generateThumbnail = async (req: Request, res: Response) => {
          layoutPlan.image_prompt +
          " ABSOLUTELY NO TEXT, LETTERS, WORDS, NUMBERS, WATERMARKS, SIGNS, OR TYPOGRAPHY ANYWHERE IN THE IMAGE. The image must be 100% text-free.";
 
-      const rawImageBuffer = await generateWithSDXL(imagePrompt, width, height);
+      let rawImageBuffer: Buffer;
+      try {
+         rawImageBuffer = await generateWithGemini(imagePrompt, aspect_ratio);
+      } catch (geminiError: any) {
+         console.warn(`[Gemini] Failed: ${geminiError.message}. Trying SDXL fallback...`);
+         rawImageBuffer = await generateWithSDXL(imagePrompt, width, height);
+      }
 
       const finalBuffer = await overlayDynamicLayout(
          rawImageBuffer,
