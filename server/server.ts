@@ -1,5 +1,5 @@
 import dns from "dns";
-// Force Node.js to use public DNS servers (Google and Cloudflare) to resolve MongoDB Atlas SRV records reliably
+
 dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
 
 import express, { Request, Response } from "express";
@@ -21,7 +21,6 @@ declare module "express-session" {
 
 const app = express();
 
-// Trust proxy is required for secure cookies to work on Render/Vercel
 app.set("trust proxy", 1);
 
 const allowedOrigins = [
@@ -39,15 +38,18 @@ app.use(
 );
 import MongoStore from "connect-mongo";
 
-const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+const isProduction =
+   process.env.NODE_ENV === "production" || process.env.RENDER === "true";
 
 app.use(
    session({
-      secret: (process.env.SESSION_SECRET as string) || "clickframe_default_session_secret_998877",
+      secret:
+         (process.env.SESSION_SECRET as string) ||
+         "clickframe_default_session_secret_998877",
       resave: false,
       saveUninitialized: false,
       cookie: {
-         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+         maxAge: 1000 * 60 * 60 * 24 * 7,
          secure: isProduction,
          sameSite: isProduction ? "none" : "lax",
       },
@@ -72,7 +74,7 @@ app.use("/api/auth", AuthRouter);
 app.use("/api/thumbnail", ThumbnailRouter);
 app.use("/api/user", UserRouter);
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 app.listen(port, () => {
    console.log(`Server is running at http://localhost:${port}`);

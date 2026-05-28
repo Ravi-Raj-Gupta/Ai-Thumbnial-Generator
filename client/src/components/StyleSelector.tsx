@@ -61,7 +61,7 @@ const StyleSelector = ({
       const el = triggerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const estimatedPanelHeight = 260; // approximate height of dropdown
+      const estimatedPanelHeight = 260; 
       setMenuPos({
          top: rect.top - estimatedPanelHeight - 8,
          left: rect.left,

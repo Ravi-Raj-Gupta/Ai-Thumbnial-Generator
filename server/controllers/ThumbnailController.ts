@@ -4,10 +4,6 @@ import ai from "../configs/ai.js";
 import sharp from "sharp";
 import cloudinary from "../configs/cloudinary.js";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Style & Color Prompt Mappings
-// ─────────────────────────────────────────────────────────────────────────────
-
 const stylePrompts = {
    "Bold & Graphic":
       "eye-catching composition, vibrant colors, expressive facial reaction, dramatic lighting, high contrast, professional style, dynamic angles",
@@ -38,57 +34,39 @@ const colorSchemeDescriptions = {
       "soft pastel colors, low saturation, gentle tones, calm and friendly aesthetic",
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Interfaces — Professional Layout Plan
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * A single line of text with its role, styling, and optional colored background band.
- * Role controls the base font size multiplier:
- *   intro    → 0.52× (small context line)
- *   title    → 1.30× (large main keyword)
- *   subtitle → 0.78× (medium supporting phrase)
- *   cta      → 0.70× (call-to-action, always has bgColor)
- */
 interface ITextPanel {
    text: string;
    role: "intro" | "title" | "subtitle" | "cta";
-   color: string;          // hex fill color for the text
-   bgColor: string | null; // colored banner strip behind the line (null = transparent)
+   color: string;          
+   bgColor: string | null; 
    fontSizeMultiplier: number;
    bold: boolean;
    allCaps: boolean;
 }
 
-/** A circular icon badge placed in the image zone with a label below. */
 interface IInfoBadge {
    label: string;
    icon: "rupee" | "star" | "book" | "building" | "play" | "users" | "chart" | "check";
 }
 
-/** A decorative corner triangle accent (fold = small, ribbon = large diagonal). */
 interface ICornerDecoration {
    position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
    type: "ribbon" | "fold";
    color: string;
-   label?: string; // e.g. "NEW"
+   label?: string; 
 }
 
 interface ILayoutPlan {
    layout_style: "split_right" | "split_left" | "center";
-   panel_color: string;    // dark background hex for the text panel side
-   panel_opacity: number;  // 0–1, how opaque the panel is
-   image_prompt: string;   // composition-aware, text-free image prompt
+   panel_color: string;    
+   panel_opacity: number;  
+   image_prompt: string;   
    text_panels: ITextPanel[];
    info_badges: IInfoBadge[];
    corner_decorations: ICornerDecoration[];
    star_callout: { show: boolean; stars: number; label: string } | null;
    subscriber_callout: { show: boolean; counts: string[] } | null;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 1 — AI Layout Planner: Ask Gemini to design the composition
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function analyzeTitleAndPlanLayout(
    title: string,
@@ -188,7 +166,6 @@ Respond with ONLY the JSON.`;
       const cleanJson = rawText.replace(/```json|```/g, "").trim();
       const plan: ILayoutPlan = JSON.parse(cleanJson);
 
-      // Validate & set safe defaults
       if (!plan.layout_style) plan.layout_style = "split_left";
       if (!plan.panel_color) plan.panel_color = "#0a0a1a";
       if (typeof plan.panel_opacity !== "number") plan.panel_opacity = 0.90;
@@ -241,12 +218,8 @@ Respond with ONLY the JSON.`;
    }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 2 — Image Generation (Pollinations SDXL)
-// ─────────────────────────────────────────────────────────────────────────────
-
 async function generateWithSDXL(prompt: string, width: number, height: number): Promise<Buffer> {
-   const sdxlUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&model=sdxl&seed=${Math.floor(Math.random() * 1000000)}&nologo=true`;
+   const sdxlUrl = `https:
    console.log(`[SDXL Fallback] Generating image via Pollinations SDXL...`);
 
    const imageResponse = await fetch(sdxlUrl, {
@@ -261,10 +234,6 @@ async function generateWithSDXL(prompt: string, width: number, height: number): 
    return buffer;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 3 — SVG Professional Layout Overlay Engine
-// ─────────────────────────────────────────────────────────────────────────────
-
 function escapeXml(s: string): string {
    return s
       .replace(/&/g, "&amp;")
@@ -274,19 +243,17 @@ function escapeXml(s: string): string {
       .replace(/'/g, "&apos;");
 }
 
-/** Unicode symbol map for info badge icons */
 const badgeIconSymbols: Record<string, string> = {
-   rupee:    "&#x20B9;", // ₹
-   star:     "&#x2605;", // ★
-   book:     "&#x2261;", // ≡
-   building: "&#x2302;", // ⌂
-   play:     "&#x25B6;", // ▶
-   users:    "&#x25A0;", // ■ (placeholder)
-   chart:    "&#x25B2;", // ▲
-   check:    "&#x2713;", // ✓
+   rupee:    "&#x20B9;", 
+   star:     "&#x2605;", 
+   book:     "&#x2261;", 
+   building: "&#x2302;", 
+   play:     "&#x25B6;", 
+   users:    "&#x25A0;", 
+   chart:    "&#x25B2;", 
+   check:    "&#x2713;", 
 };
 
-/** Render a circular info badge with icon and label below */
 function renderInfoBadge(
    cx: number,
    cy: number,
@@ -311,7 +278,6 @@ function renderInfoBadge(
    </g>`;
 }
 
-/** Render a corner fold or ribbon decoration */
 function renderCornerDecoration(
    width: number,
    height: number,
@@ -360,7 +326,6 @@ function renderCornerDecoration(
    }
 }
 
-/** Render a gold star rating callout box */
 function renderStarCallout(
    x: number,
    y: number,
@@ -382,7 +347,6 @@ function renderStarCallout(
    </g>`;
 }
 
-/** Render a floating subscriber/stat count badge */
 function renderSubscriberBadge(
    x: number,
    y: number,
@@ -405,7 +369,6 @@ function renderSubscriberBadge(
    </g>`;
 }
 
-/** Main SVG overlay composer — produces a professional multi-layer thumbnail */
 async function overlayDynamicLayout(
    imageBuffer: Buffer,
    plan: ILayoutPlan,
@@ -413,7 +376,7 @@ async function overlayDynamicLayout(
    height: number,
    text_overlay: boolean,
 ): Promise<Buffer> {
-   // If text overlay is disabled, just resize and return
+   
    if (!text_overlay) {
       return sharp(imageBuffer).resize(width, height, { fit: "cover" }).png().toBuffer();
    }
@@ -430,18 +393,16 @@ async function overlayDynamicLayout(
    } = plan;
 
    const scale = width / 1280;
-   const baseFontSize = Math.floor(width / 13);   // ~98px at 1280px wide
-   const padding = Math.floor(width * 0.048);      // ~61px at 1280px
-   const featherW = Math.floor(width * 0.07);      // feathered panel edge width ~90px
+   const baseFontSize = Math.floor(width / 13);   
+   const padding = Math.floor(width * 0.048);      
+   const featherW = Math.floor(width * 0.07);      
    const lineSpacing = 1.22;
 
-   // ── Zone geometry ──────────────────────────────────────────────────────────
    const textZoneWidth = layout_style === "center" ? width : Math.floor(width * 0.50);
    const textZoneX = layout_style === "split_right" ? Math.floor(width * 0.50) : 0;
    const imageZoneX = layout_style === "split_right" ? 0 : (layout_style === "center" ? 0 : Math.floor(width * 0.50));
    const imageZoneWidth = layout_style === "center" ? width : Math.floor(width * 0.50);
 
-   // ── Text anchor ────────────────────────────────────────────────────────────
    let textX: number;
    let svgTextAnchor: string;
    if (layout_style === "split_left") {
@@ -455,7 +416,6 @@ async function overlayDynamicLayout(
       svgTextAnchor = "middle";
    }
 
-   // ── Role → font size multiplier ────────────────────────────────────────────
    const roleFsMap: Record<string, number> = {
       intro: 0.52,
       title: 1.30,
@@ -463,33 +423,30 @@ async function overlayDynamicLayout(
       cta: 0.70,
    };
 
-   // ── Pre-calculate per-line font sizes (auto-scaling for long text) ──
-   const maxTextWidth = textZoneWidth > width * 0.6 ? textZoneWidth * 0.9 : width * 0.53; // Use 53% of width for split layouts
+   const maxTextWidth = textZoneWidth > width * 0.6 ? textZoneWidth * 0.9 : width * 0.53; 
 
    const lineFontSizes: number[] = text_panels.map((p) => {
       const intendedFs = baseFontSize * (roleFsMap[p.role] ?? 1.0) * (p.fontSizeMultiplier ?? 1.0);
-      // Rough estimation: uppercase Impact characters take up ~0.60 of their font size in width
+      
       const estCharWidthFactor = p.allCaps !== false ? 0.60 : 0.55;
       const estimatedWidth = p.text.length * intendedFs * estCharWidthFactor;
       
       if (estimatedWidth > maxTextWidth) {
-         // Scale down to fit within the max text width
+         
          return Math.floor(maxTextWidth / (p.text.length * estCharWidthFactor));
       }
       return Math.floor(intendedFs);
    });
 
-   // ── Total text block height ────────────────────────────────────────────────
    const totalTextH = lineFontSizes.reduce((sum, fs) => sum + fs * lineSpacing, 0);
 
-   // ── Vertical start position ────────────────────────────────────────────────
    let startY: number;
    if (layout_style === "center") {
       startY = height * 0.56 - totalTextH / 2;
    } else {
       startY = height / 2 - totalTextH / 2;
    }
-   // Clamp to avoid clipping at edges
+   
    startY = Math.max(padding, Math.min(startY, height - totalTextH - padding));
 
    const pOpacity = Math.min(0.98, Math.max(0, panel_opacity ?? 0.90));
@@ -497,29 +454,23 @@ async function overlayDynamicLayout(
 
    const svgParts: string[] = [];
 
-   // ─────────────────────────────────────────────────────────────────────────
-   // LAYER 1 — Solid background panel with feathered edge
-   // ─────────────────────────────────────────────────────────────────────────
    if (layout_style === "split_left") {
-      // Panel covers left half + feather; gradient fades at right edge
+      
       svgParts.push(
          `<rect x="0" y="0" width="${textZoneWidth + featherW}" height="${height}" fill="url(#panelGrad)"/>`,
       );
    } else if (layout_style === "split_right") {
-      // Panel covers right half + feather; gradient fades at left edge
+      
       svgParts.push(
          `<rect x="${textZoneX - featherW}" y="0" width="${textZoneWidth + featherW}" height="${height}" fill="url(#panelGrad)"/>`,
       );
    } else {
-      // Center layout: dark gradient at bottom
+      
       svgParts.push(
          `<rect x="0" y="${Math.floor(height * 0.40)}" width="${width}" height="${Math.floor(height * 0.60)}" fill="url(#centerGrad)"/>`,
       );
    }
 
-   // ─────────────────────────────────────────────────────────────────────────
-   // LAYER 2 — Text panels (with optional colored banner strips)
-   // ─────────────────────────────────────────────────────────────────────────
    let currentY = startY;
    for (let i = 0; i < text_panels.length; i++) {
       const panel = text_panels[i];
@@ -531,13 +482,12 @@ async function overlayDynamicLayout(
       const fontWeight = panel.bold ? "900" : "700";
       const letterSpacing = panel.role === "title" ? "3" : "1";
 
-      // ── Optional colored banner strip behind this line ──
       if (panel.bgColor) {
          const vPad = Math.floor(fs * 0.22);
          const bannerH = fs + vPad * 2;
          const bannerY = currentY - vPad;
          const textWidth = raw.length * fs * (panel.allCaps !== false ? 0.60 : 0.55);
-         // Strip width matches text length closely, slightly padded
+         
          let stripWidth = textZoneWidth;
          if (layout_style !== "center") {
              stripWidth = Math.min(textZoneWidth, textWidth + padding * 2);
@@ -558,9 +508,8 @@ async function overlayDynamicLayout(
          }
       }
 
-      // ── Text: black outline + coloured fill, inside drop-shadow group ──
       svgParts.push(`<g filter="url(#dropShadow)">`);
-      // Black outline for contrast
+      
       svgParts.push(
          `<text x="${textX}" y="${lineBottom}" text-anchor="${svgTextAnchor}"
             font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
@@ -568,7 +517,7 @@ async function overlayDynamicLayout(
             fill="none" stroke="#000000" stroke-width="${strokeW * 2.5}" stroke-linejoin="round"
             opacity="0.90">${escaped}</text>`,
       );
-      // Coloured fill
+      
       svgParts.push(
          `<text x="${textX}" y="${lineBottom}" text-anchor="${svgTextAnchor}"
             font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
@@ -580,19 +529,15 @@ async function overlayDynamicLayout(
       currentY += fs * lineSpacing;
    }
 
-   // ─────────────────────────────────────────────────────────────────────────
-   // LAYER 3 — Info badges (placed in the image zone, 2-column grid)
-   // ─────────────────────────────────────────────────────────────────────────
    if (info_badges && info_badges.length > 0) {
-      const badgeR = Math.floor(width * 0.045);  // slightly smaller: ~57px radius at 1280
-      const colGap = Math.floor(width * 0.14);   // wider gap: ~179px at 1280
-      const rowGap = Math.floor(height * 0.28);  // taller gap for labels: ~201px at 720
+      const badgeR = Math.floor(width * 0.045);  
+      const colGap = Math.floor(width * 0.14);   
+      const rowGap = Math.floor(height * 0.28);  
       const cols = 2;
       const rows = Math.ceil(info_badges.length / cols);
       const gridW = (cols - 1) * colGap;
       const gridH = (rows - 1) * rowGap;
 
-      // Center the badge grid in the image zone
       let gridCX: number;
       if (layout_style === "split_left") {
          gridCX = imageZoneX + Math.floor(imageZoneWidth * 0.42);
@@ -614,16 +559,10 @@ async function overlayDynamicLayout(
       }
    }
 
-   // ─────────────────────────────────────────────────────────────────────────
-   // LAYER 4 — Corner decorations
-   // ─────────────────────────────────────────────────────────────────────────
    for (const dec of (corner_decorations ?? [])) {
       svgParts.push(renderCornerDecoration(width, height, dec));
    }
 
-   // ─────────────────────────────────────────────────────────────────────────
-   // LAYER 5 — Star callout (top area of image zone)
-   // ─────────────────────────────────────────────────────────────────────────
    if (star_callout?.show) {
       let scX: number;
       if (layout_style === "split_left") {
@@ -634,9 +573,6 @@ async function overlayDynamicLayout(
       svgParts.push(renderStarCallout(scX, Math.floor(height * 0.05), star_callout.label, scale));
    }
 
-   // ─────────────────────────────────────────────────────────────────────────
-   // LAYER 6 — Subscriber / stat callout badges
-   // ─────────────────────────────────────────────────────────────────────────
    if (subscriber_callout?.show && subscriber_callout.counts?.length > 0) {
       let scX: number;
       if (layout_style === "split_left") {
@@ -652,12 +588,9 @@ async function overlayDynamicLayout(
       }
    }
 
-   // ─────────────────────────────────────────────────────────────────────────
-   // Build panel gradient definitions
-   // ─────────────────────────────────────────────────────────────────────────
    let panelGradDef: string;
    if (layout_style === "split_left") {
-      // Solid from left → fades to transparent at right edge
+      
       const solidPct = Math.floor(100 * (textZoneWidth / (textZoneWidth + featherW)));
       panelGradDef = `<linearGradient id="panelGrad" x1="0" y1="0" x2="1" y2="0">
          <stop offset="0%"           stop-color="${safeColor}" stop-opacity="${pOpacity}"/>
@@ -665,7 +598,7 @@ async function overlayDynamicLayout(
          <stop offset="100%"         stop-color="${safeColor}" stop-opacity="0"/>
       </linearGradient>`;
    } else if (layout_style === "split_right") {
-      // Transparent at left edge → solid to the right
+      
       const fadePct = Math.floor(100 * (featherW / (textZoneWidth + featherW)));
       panelGradDef = `<linearGradient id="panelGrad" x1="0" y1="0" x2="1" y2="0">
          <stop offset="0%"          stop-color="${safeColor}" stop-opacity="0"/>
@@ -679,10 +612,7 @@ async function overlayDynamicLayout(
       </linearGradient>`;
    }
 
-   // ─────────────────────────────────────────────────────────────────────────
-   // Compose final SVG overlay
-   // ─────────────────────────────────────────────────────────────────────────
-   const svgOverlay = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+   const svgOverlay = `<svg width="${width}" height="${height}" xmlns="http:
    <defs>
       ${panelGradDef}
       <linearGradient id="centerGrad" x1="0" y1="0" x2="0" y2="1">
@@ -710,10 +640,6 @@ async function overlayDynamicLayout(
    return result;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main Controller: Generate Thumbnail
-// ─────────────────────────────────────────────────────────────────────────────
-
 export const generateThumbnail = async (req: Request, res: Response) => {
    try {
       const { userId } = req.session;
@@ -726,7 +652,6 @@ export const generateThumbnail = async (req: Request, res: Response) => {
          text_overlay,
       } = req.body;
 
-      // Create the thumbnail record (marks as generating)
       const thumbnail = await Thumbnail.create({
          userId,
          title,
@@ -739,7 +664,6 @@ export const generateThumbnail = async (req: Request, res: Response) => {
          isGenerating: true,
       });
 
-      // Determine dimensions
       let width = 1280;
       let height = 720;
       if (aspect_ratio === "1:1") {
@@ -753,12 +677,11 @@ export const generateThumbnail = async (req: Request, res: Response) => {
       console.log(`\n=== Thumbnail Generation Started ===`);
       console.log(`Title: "${title}" | Style: ${style} | Colors: ${color_scheme} | TextOverlay: ${text_overlay}`);
 
-      // ── Step 1: AI designs the layout plan ──
       let layoutPlan: ILayoutPlan;
       if (text_overlay) {
          layoutPlan = await analyzeTitleAndPlanLayout(title, user_prompt, style, color_scheme);
       } else {
-         // Text overlay disabled — generate a clean background only
+         
          const styleDesc =
             stylePrompts[style as keyof typeof stylePrompts] || stylePrompts["Bold & Graphic"];
          const colorDesc =
@@ -776,15 +699,12 @@ export const generateThumbnail = async (req: Request, res: Response) => {
          };
       }
 
-      // ── Step 2: Append hard no-text instruction to image prompt ──
       const imagePrompt =
          layoutPlan.image_prompt +
          " ABSOLUTELY NO TEXT, LETTERS, WORDS, NUMBERS, WATERMARKS, SIGNS, OR TYPOGRAPHY ANYWHERE IN THE IMAGE. The image must be 100% text-free.";
 
-      // ── Step 3: Generate the background image (SDXL) ──
       const rawImageBuffer = await generateWithSDXL(imagePrompt, width, height);
 
-      // ── Step 4: Apply the professional SVG layout overlay ──
       const finalBuffer = await overlayDynamicLayout(
          rawImageBuffer,
          layoutPlan,
@@ -795,7 +715,6 @@ export const generateThumbnail = async (req: Request, res: Response) => {
 
       console.log(`=== Thumbnail Generation Complete ===\n`);
 
-      // ── Step 5: Upload directly to Cloudinary from memory ──
       const uploadResult: any = await new Promise((resolve, reject) => {
          cloudinary.uploader
             .upload_stream({ resource_type: "image" }, (error, result) => {
@@ -816,10 +735,6 @@ export const generateThumbnail = async (req: Request, res: Response) => {
       res.status(500).json({ message: error.message });
    }
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Controller: Delete Thumbnail
-// ─────────────────────────────────────────────────────────────────────────────
 
 export const deleteThumbnail = async (req: Request, res: Response) => {
    try {

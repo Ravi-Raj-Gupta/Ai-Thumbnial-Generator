@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import Thumbnail from "../models/Thumbnail.js";
 
-// Controllers to get All User Thumbnails
 export const getUsersThumbnails = async (req: Request, res: Response) => {
    try {
       const { userId } = req.session;
@@ -15,7 +14,6 @@ export const getUsersThumbnails = async (req: Request, res: Response) => {
    }
 };
 
-// Controllers to get Single Thumbnail of a User
 export const getThumbnailById = async (req: Request, res: Response) => {
    try {
       const { userId } = req.session;

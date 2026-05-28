@@ -33,7 +33,7 @@ const PreviewPanel = ({
 
          URL.revokeObjectURL(blobUrl);
       } catch {
-         // Fallback: open in new tab
+         
          window.open(thumbnail.image_url, "_blank");
       }
    };
