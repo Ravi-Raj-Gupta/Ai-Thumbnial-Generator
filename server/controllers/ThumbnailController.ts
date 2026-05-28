@@ -1,8 +1,6 @@
 import { Request, Response } from "express";
 import Thumbnail from "../models/Thumbnail.js";
 import ai from "../configs/ai.js";
-import fs from "fs";
-import path from "path";
 import sharp from "sharp";
 import cloudinary from "../configs/cloudinary.js";
 
@@ -40,21 +38,52 @@ const colorSchemeDescriptions = {
       "soft pastel colors, low saturation, gentle tones, calm and friendly aesthetic",
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Interfaces — Professional Layout Plan
+// ─────────────────────────────────────────────────────────────────────────────
 
-interface ITextLine {
+/**
+ * A single line of text with its role, styling, and optional colored background band.
+ * Role controls the base font size multiplier:
+ *   intro    → 0.52× (small context line)
+ *   title    → 1.30× (large main keyword)
+ *   subtitle → 0.78× (medium supporting phrase)
+ *   cta      → 0.70× (call-to-action, always has bgColor)
+ */
+interface ITextPanel {
    text: string;
-   color: string;
+   role: "intro" | "title" | "subtitle" | "cta";
+   color: string;          // hex fill color for the text
+   bgColor: string | null; // colored banner strip behind the line (null = transparent)
    fontSizeMultiplier: number;
-   isHighlighted: boolean;
+   bold: boolean;
+   allCaps: boolean;
+}
+
+/** A circular icon badge placed in the image zone with a label below. */
+interface IInfoBadge {
+   label: string;
+   icon: "rupee" | "star" | "book" | "building" | "play" | "users" | "chart" | "check";
+}
+
+/** A decorative corner triangle accent (fold = small, ribbon = large diagonal). */
+interface ICornerDecoration {
+   position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+   type: "ribbon" | "fold";
+   color: string;
+   label?: string; // e.g. "NEW"
 }
 
 interface ILayoutPlan {
    layout_style: "split_right" | "split_left" | "center";
-   image_prompt: string;     // composition-aware background image prompt
-   text_lines: ITextLine[];  // array of text chunks to draw
-   text_tilt: number;        // rotation degrees, e.g. -5 to 5
-   text_alignment: "left" | "right" | "center";
-   badges: string[];         // e.g. ["growth_arrow", "rating", "youtube_play"]
+   panel_color: string;    // dark background hex for the text panel side
+   panel_opacity: number;  // 0–1, how opaque the panel is
+   image_prompt: string;   // composition-aware, text-free image prompt
+   text_panels: ITextPanel[];
+   info_badges: IInfoBadge[];
+   corner_decorations: ICornerDecoration[];
+   star_callout: { show: boolean; stars: number; label: string } | null;
+   subscriber_callout: { show: boolean; counts: string[] } | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,116 +96,157 @@ async function analyzeTitleAndPlanLayout(
    style: string,
    color_scheme: string,
 ): Promise<ILayoutPlan> {
-   const styleDesc = stylePrompts[style as keyof typeof stylePrompts] || stylePrompts["Bold & Graphic"];
-   const colorDesc = colorSchemeDescriptions[color_scheme as keyof typeof colorSchemeDescriptions] || "vibrant and energetic";
+   const styleDesc =
+      stylePrompts[style as keyof typeof stylePrompts] || stylePrompts["Bold & Graphic"];
+   const colorDesc =
+      colorSchemeDescriptions[color_scheme as keyof typeof colorSchemeDescriptions] ||
+      "vibrant and energetic";
 
-   const plannerPrompt = `You are a world-class YouTube thumbnail designer specialising in high Click-Through-Rate (CTR) compositions.
+   const plannerPrompt = `You are a world-class YouTube thumbnail designer specialising in high Click-Through-Rate thumbnails, inspired by the best Indian YouTubers.
 
-Given the following YouTube video details, design an optimal thumbnail layout plan and return it as a single, valid JSON object with NO markdown, NO code fences, and NO commentary around it.
+Design a professional thumbnail layout for the video below and return ONLY a valid JSON object — no markdown, no code fences, no extra text.
 
 Video Title: "${title}"
 User Description: "${user_prompt || "No extra details provided."}"
 Visual Style: ${styleDesc}
 Color Scheme: ${colorDesc}
 
-Design Rules:
-1. layout_style: Choose "split_left" (text on left, subject on right), "split_right" (text on right, subject on left), or "center" (subject centred, text bottom). Prefer split layouts for action/tutorial topics.
-2. image_prompt: A precise, text-free background image prompt that directs the AI image generator. Include where to leave empty space for text (e.g., "leave the left third of the frame empty and uncluttered for text overlay"). ABSOLUTELY NO TEXT in the image.
-3. text_lines: Break the title into 2–4 dramatic chunks. Each chunk must have:
-   - text: the chunk (ALL CAPS, punchy)
-   - color: a hex code — use pure white (#FFFFFF), bright yellow (#FFD700), neon cyan (#00FFFF), or electric red (#FF3B3B)
-   - fontSizeMultiplier: between 0.8 and 1.4 (key action words get 1.3–1.4)
-   - isHighlighted: true for key action words (adds glow effect and thick coloured outline)
-4. text_tilt: A slight rotation in degrees between -6 and 6. Use 0 for center layouts.
-5. text_alignment: "left", "right", or "center" — must match layout_style.
-6. badges: An array of 0–2 badge names from: "growth_arrow", "rating", "youtube_play". Add "growth_arrow" for growth/money topics, "youtube_play" for entertainment/tutorial topics, "rating" for review/comparison topics. Leave empty [] if none fit.
+=== DESIGN RULES ===
 
-Respond with ONLY the JSON object. Example format:
+1. layout_style: RANDOMLY choose between "split_left" (text on left half) and "split_right" (text on right half). Occasionally use "center". DO NOT always pick split_left!
+
+2. panel_color: A richly saturated dark hex color for the solid text-zone background. Match the vibe of the topic (e.g., #0D2355 navy, #1a0520 purple, #0D2010 green, #1A0505 maroon).
+
+3. panel_opacity: 0.88–0.95 for split layouts. Use 0.0 for center.
+
+4. image_prompt: Precise, text-free prompt. MUST include:
+   - A highly expressive human subject relevant to the topic
+   - For "split_left": "subject positioned on the far RIGHT side of the frame"
+   - For "split_right": "subject positioned on the far LEFT side of the frame"
+   - "The [left/right] half of the frame is naturally dark, matching the panel color, with clean uncluttered space"
+   - End with: "ABSOLUTELY NO TEXT, LETTERS, WORDS, NUMBERS, SIGNS, or TYPOGRAPHY anywhere in the image."
+
+5. text_panels: 2–5 lines, each with a role: "intro", "title", "subtitle", "cta". 
+   - VARY THE COMBINATION! Sometimes use [title, subtitle], sometimes [intro, title, cta], etc.
+   - VARY THE TITLE COLOR! Do NOT always use yellow. Pick from: "#FFD700" (Gold), "#00FFFF" (Cyan), "#FF3B3B" (Red), "#7CFC00" (Lime), or "#FFFFFF" (White).
+   - bgColor: Decide WHICH line gets a colored banner strip. Usually the 'cta' or 'subtitle'. Use hex like "#C62828", "#1565C0", "#E65100". Leave others null.
+   - fontSizeMultiplier: 0.85–1.15.
+   - bold: true for main lines.
+   - allCaps: always true.
+
+6. info_badges: 0–4 circular icon badges placed in the IMAGE zone (e.g. "PLACEMENTS", "ACADEMICS", "CAMPUS"). ONLY use these for educational/review/comparison content! Leave [] for most topics.
+
+7. corner_decorations: Corner triangle accents. 
+   - Use "fold" (all 4 corners) OR "ribbon" (top-left).
+   - ONLY use for special topics (reviews, new launches). Leave [] for most topics.
+
+8. star_callout: For review / rating / comparison videos ONLY. Leave null for others.
+
+9. subscriber_callout: For channel growth / milestone videos ONLY. Leave null for others.
+
+*** CRITICAL: EVERY THUMBNAIL MUST FEEL UNIQUE. Randomly swap layout sides (left vs right), change text colors, and vary the number of text lines! ***
+
+=== EXAMPLE JSON OUTPUT (college review video) ===
 {
   "layout_style": "split_left",
-  "image_prompt": "...",
-  "text_lines": [
-    { "text": "GROW", "color": "#FFD700", "fontSizeMultiplier": 1.4, "isHighlighted": true },
-    { "text": "YOUR CHANNEL", "color": "#FFFFFF", "fontSizeMultiplier": 1.0, "isHighlighted": false },
-    { "text": "10X FASTER", "color": "#FF3B3B", "fontSizeMultiplier": 1.2, "isHighlighted": true }
+  "panel_color": "#0D2355",
+  "panel_opacity": 0.93,
+  "image_prompt": "A smiling confident young Indian man in casual clothes pointing to the left, standing on the far RIGHT side of the frame. Slightly blurred college campus gate visible behind him. The left half of the image is naturally dark navy with clean, uncluttered space. ABSOLUTELY NO TEXT, LETTERS, WORDS, or NUMBERS in the image.",
+  "text_panels": [
+    { "text": "NIT JAMSHEDPUR", "role": "title", "color": "#FFD700", "bgColor": null, "fontSizeMultiplier": 1.05, "bold": true, "allCaps": true },
+    { "text": "COLLEGE REVIEW", "role": "subtitle", "color": "#FFFFFF", "bgColor": "#C62828", "fontSizeMultiplier": 1.0, "bold": true, "allCaps": true },
+    { "text": "HONEST & DETAILED", "role": "cta", "color": "#7CFC00", "bgColor": null, "fontSizeMultiplier": 0.9, "bold": false, "allCaps": true }
   ],
-  "text_tilt": -4,
-  "text_alignment": "left",
-  "badges": ["growth_arrow"]
-}`;
+  "info_badges": [
+    { "label": "PLACEMENTS", "icon": "rupee" },
+    { "label": "ACADEMICS", "icon": "book" },
+    { "label": "RATING", "icon": "star" },
+    { "label": "CAMPUS", "icon": "building" }
+  ],
+  "corner_decorations": [
+    { "position": "top-left", "type": "fold", "color": "#CC0000" },
+    { "position": "top-right", "type": "fold", "color": "#CC0000" },
+    { "position": "bottom-left", "type": "fold", "color": "#CC0000" },
+    { "position": "bottom-right", "type": "fold", "color": "#CC0000" }
+  ],
+  "star_callout": { "show": true, "stars": 4.5, "label": "4.5 STARS" },
+  "subscriber_callout": null
+}
+
+Respond with ONLY the JSON.`;
 
    console.log(`[Layout Planner] Analyzing title with Gemini...`);
 
    try {
       const response = await ai.models.generateContent({
-         model: "gemini-2.0-flash",
+         model: "gemini-3.5-flash",
          contents: plannerPrompt,
          config: { temperature: 0.8 },
       });
 
-      const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      // Strip any accidental markdown code fences
+      const rawText = response.text || "";
       const cleanJson = rawText.replace(/```json|```/g, "").trim();
       const plan: ILayoutPlan = JSON.parse(cleanJson);
 
-      // Validate required fields — fall back to safe defaults
-      if (!plan.layout_style) plan.layout_style = "center";
-      if (!plan.text_lines || plan.text_lines.length === 0) {
-         plan.text_lines = [{ text: title.toUpperCase(), color: "#FFFFFF", fontSizeMultiplier: 1.0, isHighlighted: false }];
+      // Validate & set safe defaults
+      if (!plan.layout_style) plan.layout_style = "split_left";
+      if (!plan.panel_color) plan.panel_color = "#0a0a1a";
+      if (typeof plan.panel_opacity !== "number") plan.panel_opacity = 0.90;
+      if (!plan.text_panels || plan.text_panels.length === 0) {
+         plan.text_panels = [
+            {
+               text: title.toUpperCase(),
+               role: "title",
+               color: "#FFD700",
+               bgColor: null,
+               fontSizeMultiplier: 1.0,
+               bold: true,
+               allCaps: true,
+            },
+         ];
       }
-      if (typeof plan.text_tilt !== "number") plan.text_tilt = 0;
-      if (!plan.text_alignment) plan.text_alignment = "center";
-      if (!Array.isArray(plan.badges)) plan.badges = [];
+      if (!Array.isArray(plan.info_badges)) plan.info_badges = [];
+      if (!Array.isArray(plan.corner_decorations)) plan.corner_decorations = [];
 
-      console.log(`[Layout Planner] Plan: layout=${plan.layout_style}, tilt=${plan.text_tilt}°, badges=[${plan.badges.join(",")}]`);
+      console.log(
+         `[Layout Planner] layout=${plan.layout_style}, panels=${plan.text_panels.length}, ` +
+         `badges=${plan.info_badges.length}, corners=${plan.corner_decorations.length}, ` +
+         `star=${!!plan.star_callout?.show}, subs=${!!plan.subscriber_callout?.show}`,
+      );
       return plan;
    } catch (err: any) {
-      console.warn(`[Layout Planner] Failed to parse AI plan: ${err.message}. Using safe fallback.`);
-      // Safe fallback plan
+      console.warn(`[Layout Planner] Parse failed: ${err.message}. Using safe fallback.`);
       return {
-         layout_style: "center",
-         image_prompt: `A professional YouTube thumbnail background for: "${title}". ${styleDesc}. ${colorDesc}. Leave the lower third clear for text overlay. NO TEXT in the image.`,
-         text_lines: [{ text: title.toUpperCase(), color: "#FFFFFF", fontSizeMultiplier: 1.0, isHighlighted: false }],
-         text_tilt: 0,
-         text_alignment: "center",
-         badges: [],
+         layout_style: "split_left",
+         panel_color: "#0a0a1a",
+         panel_opacity: 0.90,
+         image_prompt: `A highly expressive human subject on the far RIGHT side of the frame. ${styleDesc} style. ${colorDesc} color scheme. The left half of the image is naturally dark and empty. ABSOLUTELY NO TEXT, NO LETTERS, NO WORDS in the image.`,
+         text_panels: [
+            { text: "MUST WATCH", role: "intro", color: "#FFFFFF", bgColor: null, fontSizeMultiplier: 1.0, bold: false, allCaps: true },
+            {
+               text: title.toUpperCase().split(" ").slice(0, 3).join(" "),
+               role: "title",
+               color: "#FFD700",
+               bgColor: null,
+               fontSizeMultiplier: 1.0,
+               bold: true,
+               allCaps: true,
+            },
+         ],
+         info_badges: [],
+         corner_decorations: [],
+         star_callout: null,
+         subscriber_callout: null,
       };
    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 2 — Image Generation
+// Step 2 — Image Generation (Pollinations SDXL)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function generateWithGemini(prompt: string): Promise<Buffer> {
-   console.log(`[Gemini] Generating image with gemini-2.0-flash-preview-image-generation...`);
-
-   const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-preview-image-generation",
-      contents: prompt,
-      config: {
-         responseModalities: ["TEXT", "IMAGE"],
-      },
-   });
-
-   const parts = response.candidates?.[0]?.content?.parts;
-   if (!parts) throw new Error("No content parts returned from Gemini");
-
-   const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith("image/"));
-   if (!imagePart?.inlineData?.data) throw new Error("No image data found in Gemini response");
-
-   const buffer = Buffer.from(imagePart.inlineData.data, "base64");
-   console.log(`[Gemini] Image generated (${(buffer.length / 1024).toFixed(1)} KB)`);
-   return buffer;
-}
-
 async function generateWithSDXL(prompt: string, width: number, height: number): Promise<Buffer> {
-   const sdxlUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-      prompt,
-   )}?width=${width}&height=${height}&model=sdxl&seed=${Math.floor(
-      Math.random() * 1000000,
-   )}&nologo=true`;
-
+   const sdxlUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&model=sdxl&seed=${Math.floor(Math.random() * 1000000)}&nologo=true`;
    console.log(`[SDXL Fallback] Generating image via Pollinations SDXL...`);
 
    const imageResponse = await fetch(sdxlUrl, {
@@ -192,70 +262,150 @@ async function generateWithSDXL(prompt: string, width: number, height: number): 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 3 — SVG Dynamic Layout Overlay Engine
+// Step 3 — SVG Professional Layout Overlay Engine
 // ─────────────────────────────────────────────────────────────────────────────
 
 function escapeXml(s: string): string {
-   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+   return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
 }
 
-/** Render the growth arrow badge SVG elements */
-function renderGrowthArrow(x: number, y: number, scale: number = 1): string {
-   const s = scale * 60;
-   return `
-   <g transform="translate(${x}, ${y})">
-      <!-- Arrow shaft -->
-      <line x1="${s * 0.1}" y1="${s * 0.85}" x2="${s * 0.75}" y2="${s * 0.15}"
-            stroke="#FF4500" stroke-width="${s * 0.12}" stroke-linecap="round"/>
-      <!-- Arrow head -->
-      <polygon points="${s * 0.75},${s * 0.15} ${s * 0.48},${s * 0.20} ${s * 0.72},${s * 0.42}"
-               fill="#FF4500"/>
-      <!-- Neon glow -->
-      <line x1="${s * 0.1}" y1="${s * 0.85}" x2="${s * 0.75}" y2="${s * 0.15}"
-            stroke="#FF6A00" stroke-width="${s * 0.06}" stroke-linecap="round" opacity="0.6" filter="url(#glowBadge)"/>
-      <!-- Small trendline dots -->
-      <circle cx="${s * 0.15}" cy="${s * 0.80}" r="${s * 0.07}" fill="#FFD700"/>
-      <circle cx="${s * 0.35}" cy="${s * 0.58}" r="${s * 0.07}" fill="#FFD700"/>
-      <circle cx="${s * 0.55}" cy="${s * 0.38}" r="${s * 0.07}" fill="#FFD700"/>
+/** Unicode symbol map for info badge icons */
+const badgeIconSymbols: Record<string, string> = {
+   rupee:    "&#x20B9;", // ₹
+   star:     "&#x2605;", // ★
+   book:     "&#x2261;", // ≡
+   building: "&#x2302;", // ⌂
+   play:     "&#x25B6;", // ▶
+   users:    "&#x25A0;", // ■ (placeholder)
+   chart:    "&#x25B2;", // ▲
+   check:    "&#x2713;", // ✓
+};
+
+/** Render a circular info badge with icon and label below */
+function renderInfoBadge(
+   cx: number,
+   cy: number,
+   badge: IInfoBadge,
+   radius: number,
+): string {
+   const icon = badgeIconSymbols[badge.icon] || "&#x25CF;";
+   const iconFs = Math.floor(radius * 0.85);
+   const labelFs = Math.floor(radius * 0.50);
+   const ringW = Math.max(2, Math.floor(radius * 0.09));
+
+   return `<g filter="url(#badgeShadow)">
+      <circle cx="${cx}" cy="${cy}" r="${radius}" fill="#FFFFFF" opacity="0.97"/>
+      <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#FFD700" stroke-width="${ringW * 1.5}"/>
+      <text x="${cx}" y="${cy + Math.floor(iconFs * 0.35)}" text-anchor="middle"
+         font-family="Arial,Helvetica,sans-serif" font-size="${iconFs}"
+         fill="#1a1a2e" font-weight="bold">${icon}</text>
+      <text x="${cx}" y="${cy + radius + Math.floor(labelFs * 1.55)}" text-anchor="middle"
+         font-family="'Arial Black','Impact',sans-serif" font-size="${labelFs}"
+         fill="#FFFFFF" font-weight="900" letter-spacing="0.5"
+         filter="url(#dropShadow)">${escapeXml(badge.label.toUpperCase())}</text>
    </g>`;
 }
 
-/** Render the golden star rating badge SVG elements */
-function renderRating(x: number, y: number, scale: number = 1): string {
-   const s = scale * 70;
-   // 5-point star path centred at (s/2, s/2)
-   const cx = s / 2, cy = s / 2, outerR = s * 0.45, innerR = s * 0.18;
-   const points: string[] = [];
-   for (let i = 0; i < 10; i++) {
-      const angle = (Math.PI / 5) * i - Math.PI / 2;
-      const r = i % 2 === 0 ? outerR : innerR;
-      points.push(`${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`);
+/** Render a corner fold or ribbon decoration */
+function renderCornerDecoration(
+   width: number,
+   height: number,
+   dec: ICornerDecoration,
+): string {
+   const isRibbon = dec.type === "ribbon";
+   const s = isRibbon ? Math.floor(width * 0.115) : Math.floor(width * 0.082);
+   const labelFs = Math.floor(s * 0.27);
+   const opacity = isRibbon ? 0.93 : 0.97;
+
+   switch (dec.position) {
+      case "top-left": {
+         const pts = `0,0 ${s},0 0,${s}`;
+         const lx = Math.floor(s * 0.30);
+         const ly = Math.floor(s * 0.42);
+         return `<g filter="url(#badgeShadow)">
+            <polygon points="${pts}" fill="${dec.color}" opacity="${opacity}"/>
+            ${dec.label
+               ? `<text x="${lx}" y="${ly}" text-anchor="middle"
+                  transform="rotate(-45 ${lx} ${ly})"
+                  font-family="'Impact','Arial Black',sans-serif"
+                  font-size="${labelFs}" fill="#FFFFFF" font-weight="900">${escapeXml(dec.label)}</text>`
+               : ""}
+         </g>`;
+      }
+      case "top-right": {
+         const pts = `${width},0 ${width - s},0 ${width},${s}`;
+         return `<g filter="url(#badgeShadow)">
+            <polygon points="${pts}" fill="${dec.color}" opacity="${opacity}"/>
+         </g>`;
+      }
+      case "bottom-left": {
+         const pts = `0,${height} ${s},${height} 0,${height - s}`;
+         return `<g filter="url(#badgeShadow)">
+            <polygon points="${pts}" fill="${dec.color}" opacity="${opacity}"/>
+         </g>`;
+      }
+      case "bottom-right": {
+         const pts = `${width},${height} ${width - s},${height} ${width},${height - s}`;
+         return `<g filter="url(#badgeShadow)">
+            <polygon points="${pts}" fill="${dec.color}" opacity="${opacity}"/>
+         </g>`;
+      }
+      default:
+         return "";
    }
-   const starPts = points.join(" ");
-   return `
-   <g transform="translate(${x}, ${y})">
-      <polygon points="${starPts}" fill="#FFD700" stroke="#FF8C00" stroke-width="${s * 0.03}" filter="url(#glowBadge)"/>
-      <text x="${cx}" y="${cy + s * 0.08}" text-anchor="middle" dominant-baseline="middle"
-            font-family="'Impact','Arial Black',sans-serif" font-size="${s * 0.28}" font-weight="900"
-            fill="#1a1a1a">4.9</text>
+}
+
+/** Render a gold star rating callout box */
+function renderStarCallout(
+   x: number,
+   y: number,
+   label: string,
+   scale: number,
+): string {
+   const w = Math.floor(220 * scale);
+   const h = Math.floor(72 * scale);
+   const rx = Math.floor(h * 0.22);
+   const starFs = Math.floor(36 * scale);
+   const textFs = Math.floor(22 * scale);
+   return `<g filter="url(#badgeShadow)">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="#FFD700" opacity="0.97"/>
+      <text x="${x + Math.floor(w * 0.18)}" y="${y + Math.floor(h * 0.70)}" text-anchor="middle"
+         font-family="Arial,Helvetica,sans-serif" font-size="${starFs}" fill="#E65100">&#x2605;</text>
+      <text x="${x + Math.floor(w * 0.60)}" y="${y + Math.floor(h * 0.68)}" text-anchor="middle"
+         font-family="'Impact','Arial Black',sans-serif" font-size="${textFs}"
+         fill="#1a1a1a" font-weight="900">${escapeXml(label.toUpperCase())}</text>
    </g>`;
 }
 
-/** Render the YouTube play button badge SVG elements */
-function renderYoutubePlay(x: number, y: number, scale: number = 1): string {
-   const w = scale * 110, h = scale * 78;
-   const rx = w * 0.18;
-   return `
-   <g transform="translate(${x}, ${y})">
-      <!-- Red rounded rectangle -->
-      <rect x="0" y="0" width="${w}" height="${h}" rx="${rx}" ry="${rx}"
-            fill="#FF0000" opacity="0.92" filter="url(#glowBadge)"/>
-      <!-- White play triangle -->
-      <polygon points="${w * 0.35},${h * 0.22} ${w * 0.78},${h * 0.50} ${w * 0.35},${h * 0.78}"
-               fill="#FFFFFF"/>
+/** Render a floating subscriber/stat count badge */
+function renderSubscriberBadge(
+   x: number,
+   y: number,
+   count: string,
+   scale: number,
+): string {
+   const w = Math.floor(150 * scale);
+   const h = Math.floor(54 * scale);
+   const rx = Math.floor(h * 0.35);
+   const textFs = Math.floor(26 * scale);
+   const dotFs = Math.floor(20 * scale);
+   return `<g filter="url(#badgeShadow)">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"
+         fill="rgba(0,0,0,0.82)" stroke="#FFFFFF" stroke-width="${Math.max(1, Math.floor(2 * scale))}"/>
+      <text x="${x + Math.floor(w * 0.20)}" y="${y + Math.floor(h * 0.68)}" text-anchor="middle"
+         font-family="Arial,sans-serif" font-size="${dotFs}" fill="#AAAAFF">&#x25CF;</text>
+      <text x="${x + Math.floor(w * 0.63)}" y="${y + Math.floor(h * 0.68)}" text-anchor="middle"
+         font-family="'Impact','Arial Black',sans-serif" font-size="${textFs}"
+         fill="#FFFFFF" font-weight="900">${escapeXml(count)}</text>
    </g>`;
 }
 
+/** Main SVG overlay composer — produces a professional multi-layer thumbnail */
 async function overlayDynamicLayout(
    imageBuffer: Buffer,
    plan: ILayoutPlan,
@@ -268,175 +418,286 @@ async function overlayDynamicLayout(
       return sharp(imageBuffer).resize(width, height, { fit: "cover" }).png().toBuffer();
    }
 
-   const { layout_style, text_lines, text_tilt, text_alignment, badges } = plan;
+   const {
+      layout_style,
+      panel_color,
+      panel_opacity,
+      text_panels,
+      info_badges,
+      corner_decorations,
+      star_callout,
+      subscriber_callout,
+   } = plan;
 
-   // ── Typography geometry ──
-   const baseFontSize = Math.floor(width / 15);
-   const padding = Math.floor(width * 0.055);
-   const lineSpacing = 1.20;
+   const scale = width / 1280;
+   const baseFontSize = Math.floor(width / 13);   // ~98px at 1280px wide
+   const padding = Math.floor(width * 0.048);      // ~61px at 1280px
+   const featherW = Math.floor(width * 0.07);      // feathered panel edge width ~90px
+   const lineSpacing = 1.22;
 
-   // Determine text X anchor & SVG text-anchor based on layout
+   // ── Zone geometry ──────────────────────────────────────────────────────────
+   const textZoneWidth = layout_style === "center" ? width : Math.floor(width * 0.50);
+   const textZoneX = layout_style === "split_right" ? Math.floor(width * 0.50) : 0;
+   const imageZoneX = layout_style === "split_right" ? 0 : (layout_style === "center" ? 0 : Math.floor(width * 0.50));
+   const imageZoneWidth = layout_style === "center" ? width : Math.floor(width * 0.50);
+
+   // ── Text anchor ────────────────────────────────────────────────────────────
    let textX: number;
    let svgTextAnchor: string;
-   let textMaxWidth: number;
-
-   if (layout_style === "split_left" || text_alignment === "left") {
+   if (layout_style === "split_left") {
       textX = padding;
       svgTextAnchor = "start";
-      textMaxWidth = width * 0.48;
-   } else if (layout_style === "split_right" || text_alignment === "right") {
-      textX = width - padding;
-      svgTextAnchor = "end";
-      textMaxWidth = width * 0.48;
+   } else if (layout_style === "split_right") {
+      textX = textZoneX + padding;
+      svgTextAnchor = "start";
    } else {
-      // center
       textX = width / 2;
       svgTextAnchor = "middle";
-      textMaxWidth = width * 0.85;
    }
 
-   // ── Calculate Y positions — vertically centred in text zone ──
-   const totalLines = text_lines.length;
-   const totalTextHeight = text_lines.reduce((acc, line) => {
-      return acc + baseFontSize * line.fontSizeMultiplier * lineSpacing;
-   }, 0);
+   // ── Role → font size multiplier ────────────────────────────────────────────
+   const roleFsMap: Record<string, number> = {
+      intro: 0.52,
+      title: 1.30,
+      subtitle: 0.78,
+      cta: 0.70,
+   };
 
-   // For split layouts: centre vertically; for center layout: position at bottom third
+   // ── Pre-calculate per-line font sizes (auto-scaling for long text) ──
+   const maxTextWidth = textZoneWidth > width * 0.6 ? textZoneWidth * 0.9 : width * 0.53; // Use 53% of width for split layouts
+
+   const lineFontSizes: number[] = text_panels.map((p) => {
+      const intendedFs = baseFontSize * (roleFsMap[p.role] ?? 1.0) * (p.fontSizeMultiplier ?? 1.0);
+      // Rough estimation: uppercase Impact characters take up ~0.60 of their font size in width
+      const estCharWidthFactor = p.allCaps !== false ? 0.60 : 0.55;
+      const estimatedWidth = p.text.length * intendedFs * estCharWidthFactor;
+      
+      if (estimatedWidth > maxTextWidth) {
+         // Scale down to fit within the max text width
+         return Math.floor(maxTextWidth / (p.text.length * estCharWidthFactor));
+      }
+      return Math.floor(intendedFs);
+   });
+
+   // ── Total text block height ────────────────────────────────────────────────
+   const totalTextH = lineFontSizes.reduce((sum, fs) => sum + fs * lineSpacing, 0);
+
+   // ── Vertical start position ────────────────────────────────────────────────
    let startY: number;
    if (layout_style === "center") {
-      startY = height * 0.62 - totalTextHeight / 2;
+      startY = height * 0.56 - totalTextH / 2;
    } else {
-      startY = height / 2 - totalTextHeight / 2;
+      startY = height / 2 - totalTextH / 2;
+   }
+   // Clamp to avoid clipping at edges
+   startY = Math.max(padding, Math.min(startY, height - totalTextH - padding));
+
+   const pOpacity = Math.min(0.98, Math.max(0, panel_opacity ?? 0.90));
+   const safeColor = panel_color || "#0a0a1a";
+
+   const svgParts: string[] = [];
+
+   // ─────────────────────────────────────────────────────────────────────────
+   // LAYER 1 — Solid background panel with feathered edge
+   // ─────────────────────────────────────────────────────────────────────────
+   if (layout_style === "split_left") {
+      // Panel covers left half + feather; gradient fades at right edge
+      svgParts.push(
+         `<rect x="0" y="0" width="${textZoneWidth + featherW}" height="${height}" fill="url(#panelGrad)"/>`,
+      );
+   } else if (layout_style === "split_right") {
+      // Panel covers right half + feather; gradient fades at left edge
+      svgParts.push(
+         `<rect x="${textZoneX - featherW}" y="0" width="${textZoneWidth + featherW}" height="${height}" fill="url(#panelGrad)"/>`,
+      );
+   } else {
+      // Center layout: dark gradient at bottom
+      svgParts.push(
+         `<rect x="0" y="${Math.floor(height * 0.40)}" width="${width}" height="${Math.floor(height * 0.60)}" fill="url(#centerGrad)"/>`,
+      );
    }
 
-   // ── Build SVG text elements ──
-   const svgTextElements: string[] = [];
+   // ─────────────────────────────────────────────────────────────────────────
+   // LAYER 2 — Text panels (with optional colored banner strips)
+   // ─────────────────────────────────────────────────────────────────────────
    let currentY = startY;
+   for (let i = 0; i < text_panels.length; i++) {
+      const panel = text_panels[i];
+      const fs = lineFontSizes[i];
+      const lineBottom = currentY + fs;
+      const raw = panel.allCaps !== false ? panel.text.toUpperCase() : panel.text;
+      const escaped = escapeXml(raw);
+      const strokeW = Math.max(2, Math.floor(fs / 13));
+      const fontWeight = panel.bold ? "900" : "700";
+      const letterSpacing = panel.role === "title" ? "3" : "1";
 
-   for (const line of text_lines) {
-      const fs = Math.floor(baseFontSize * line.fontSizeMultiplier);
-      const strokeW = Math.max(3, Math.floor(fs / 10));
-      const escaped = escapeXml(line.text.toUpperCase());
-      const lineY = currentY + fs;
-
-      if (line.isHighlighted) {
-         // Thick coloured glow outline for highlighted words
-         svgTextElements.push(`
-         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
-               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
-               font-size="${fs}" font-weight="900" letter-spacing="2"
-               fill="none" stroke="${line.color}" stroke-width="${strokeW * 4}" stroke-linejoin="round"
-               opacity="0.55" filter="url(#glowText)">${escaped}</text>`);
-         // Black outer stroke for contrast
-         svgTextElements.push(`
-         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
-               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
-               font-size="${fs}" font-weight="900" letter-spacing="2"
-               fill="none" stroke="#000000" stroke-width="${strokeW * 2}" stroke-linejoin="round">${escaped}</text>`);
-         // Fill with the highlight colour
-         svgTextElements.push(`
-         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
-               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
-               font-size="${fs}" font-weight="900" letter-spacing="2"
-               fill="${line.color}">${escaped}</text>`);
-      } else {
-         // Standard text: black outline + white fill
-         svgTextElements.push(`
-         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
-               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
-               font-size="${fs}" font-weight="900" letter-spacing="2"
-               fill="none" stroke="#000000" stroke-width="${strokeW * 2.5}" stroke-linejoin="round"
-               opacity="0.8">${escaped}</text>`);
-         svgTextElements.push(`
-         <text x="${textX}" y="${lineY}" text-anchor="${svgTextAnchor}"
-               font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
-               font-size="${fs}" font-weight="900" letter-spacing="2"
-               fill="${line.color}">${escaped}</text>`);
+      // ── Optional colored banner strip behind this line ──
+      if (panel.bgColor) {
+         const vPad = Math.floor(fs * 0.22);
+         const bannerH = fs + vPad * 2;
+         const bannerY = currentY - vPad;
+         const textWidth = raw.length * fs * (panel.allCaps !== false ? 0.60 : 0.55);
+         // Strip width matches text length closely, slightly padded
+         let stripWidth = textZoneWidth;
+         if (layout_style !== "center") {
+             stripWidth = Math.min(textZoneWidth, textWidth + padding * 2);
+         }
+         
+         if (layout_style === "split_left") {
+            svgParts.push(
+               `<rect x="0" y="${bannerY}" width="${stripWidth}" height="${bannerH}" fill="${panel.bgColor}"/>`,
+            );
+         } else if (layout_style === "split_right") {
+            svgParts.push(
+               `<rect x="${width - stripWidth}" y="${bannerY}" width="${stripWidth}" height="${bannerH}" fill="${panel.bgColor}"/>`,
+            );
+         } else {
+            svgParts.push(
+               `<rect x="${padding}" y="${bannerY}" width="${width - padding * 2}" height="${bannerH}" fill="${panel.bgColor}" rx="${Math.floor(bannerH * 0.10)}"/>`,
+            );
+         }
       }
+
+      // ── Text: black outline + coloured fill, inside drop-shadow group ──
+      svgParts.push(`<g filter="url(#dropShadow)">`);
+      // Black outline for contrast
+      svgParts.push(
+         `<text x="${textX}" y="${lineBottom}" text-anchor="${svgTextAnchor}"
+            font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+            font-size="${fs}" font-weight="${fontWeight}" letter-spacing="${letterSpacing}"
+            fill="none" stroke="#000000" stroke-width="${strokeW * 2.5}" stroke-linejoin="round"
+            opacity="0.90">${escaped}</text>`,
+      );
+      // Coloured fill
+      svgParts.push(
+         `<text x="${textX}" y="${lineBottom}" text-anchor="${svgTextAnchor}"
+            font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+            font-size="${fs}" font-weight="${fontWeight}" letter-spacing="${letterSpacing}"
+            fill="${panel.color}">${escaped}</text>`,
+      );
+      svgParts.push(`</g>`);
 
       currentY += fs * lineSpacing;
    }
 
-   // ── Tilt: wrap all text in a rotate group ──
-   const tiltAngle = text_tilt || 0;
-   // Pivot point for rotation: near the text anchor
-   const pivotX = layout_style === "center" ? width / 2 : (layout_style === "split_left" ? padding : width - padding);
-   const pivotY = startY + totalTextHeight / 2;
+   // ─────────────────────────────────────────────────────────────────────────
+   // LAYER 3 — Info badges (placed in the image zone, 2-column grid)
+   // ─────────────────────────────────────────────────────────────────────────
+   if (info_badges && info_badges.length > 0) {
+      const badgeR = Math.floor(width * 0.045);  // slightly smaller: ~57px radius at 1280
+      const colGap = Math.floor(width * 0.14);   // wider gap: ~179px at 1280
+      const rowGap = Math.floor(height * 0.28);  // taller gap for labels: ~201px at 720
+      const cols = 2;
+      const rows = Math.ceil(info_badges.length / cols);
+      const gridW = (cols - 1) * colGap;
+      const gridH = (rows - 1) * rowGap;
 
-   const tiltedTextGroup = `
-   <g transform="rotate(${tiltAngle}, ${pivotX}, ${pivotY})">
-      ${svgTextElements.join("\n")}
-   </g>`;
+      // Center the badge grid in the image zone
+      let gridCX: number;
+      if (layout_style === "split_left") {
+         gridCX = imageZoneX + Math.floor(imageZoneWidth * 0.42);
+      } else if (layout_style === "split_right") {
+         gridCX = imageZoneX + Math.floor(imageZoneWidth * 0.58);
+      } else {
+         gridCX = Math.floor(width * 0.80);
+      }
+      const gridCY = height * 0.50;
+      const gridStartX = gridCX - gridW / 2;
+      const gridStartY = gridCY - gridH / 2;
 
-   // ── Dark gradient vignette behind text area ──
-   let gradientDef: string;
-   let gradientRect: string;
+      for (let bi = 0; bi < info_badges.length; bi++) {
+         const col = bi % cols;
+         const row = Math.floor(bi / cols);
+         const bx = gridStartX + col * colGap;
+         const by = gridStartY + row * rowGap;
+         svgParts.push(renderInfoBadge(bx, by, info_badges[bi], badgeR));
+      }
+   }
 
+   // ─────────────────────────────────────────────────────────────────────────
+   // LAYER 4 — Corner decorations
+   // ─────────────────────────────────────────────────────────────────────────
+   for (const dec of (corner_decorations ?? [])) {
+      svgParts.push(renderCornerDecoration(width, height, dec));
+   }
+
+   // ─────────────────────────────────────────────────────────────────────────
+   // LAYER 5 — Star callout (top area of image zone)
+   // ─────────────────────────────────────────────────────────────────────────
+   if (star_callout?.show) {
+      let scX: number;
+      if (layout_style === "split_left") {
+         scX = imageZoneX + Math.floor(imageZoneWidth * 0.05);
+      } else {
+         scX = imageZoneX + Math.floor(imageZoneWidth * 0.54);
+      }
+      svgParts.push(renderStarCallout(scX, Math.floor(height * 0.05), star_callout.label, scale));
+   }
+
+   // ─────────────────────────────────────────────────────────────────────────
+   // LAYER 6 — Subscriber / stat callout badges
+   // ─────────────────────────────────────────────────────────────────────────
+   if (subscriber_callout?.show && subscriber_callout.counts?.length > 0) {
+      let scX: number;
+      if (layout_style === "split_left") {
+         scX = imageZoneX + Math.floor(imageZoneWidth * 0.04);
+      } else if (layout_style === "split_right") {
+         scX = imageZoneX + Math.floor(imageZoneWidth * 0.52);
+      } else {
+         scX = Math.floor(width * 0.62);
+      }
+      for (let ci = 0; ci < Math.min(subscriber_callout.counts.length, 3); ci++) {
+         const cy = Math.floor(height * 0.20) + ci * Math.floor(height * 0.16);
+         svgParts.push(renderSubscriberBadge(scX, cy, subscriber_callout.counts[ci], scale));
+      }
+   }
+
+   // ─────────────────────────────────────────────────────────────────────────
+   // Build panel gradient definitions
+   // ─────────────────────────────────────────────────────────────────────────
+   let panelGradDef: string;
    if (layout_style === "split_left") {
-      gradientDef = `<linearGradient id="textGrad" x1="0" y1="0" x2="1" y2="0">
-         <stop offset="0%" stop-color="rgba(0,0,0,0.72)"/>
-         <stop offset="58%" stop-color="rgba(0,0,0,0.30)"/>
-         <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      // Solid from left → fades to transparent at right edge
+      const solidPct = Math.floor(100 * (textZoneWidth / (textZoneWidth + featherW)));
+      panelGradDef = `<linearGradient id="panelGrad" x1="0" y1="0" x2="1" y2="0">
+         <stop offset="0%"           stop-color="${safeColor}" stop-opacity="${pOpacity}"/>
+         <stop offset="${solidPct}%" stop-color="${safeColor}" stop-opacity="${pOpacity}"/>
+         <stop offset="100%"         stop-color="${safeColor}" stop-opacity="0"/>
       </linearGradient>`;
-      gradientRect = `<rect width="${width * 0.55}" height="${height}" fill="url(#textGrad)"/>`;
    } else if (layout_style === "split_right") {
-      gradientDef = `<linearGradient id="textGrad" x1="1" y1="0" x2="0" y2="0">
-         <stop offset="0%" stop-color="rgba(0,0,0,0.72)"/>
-         <stop offset="58%" stop-color="rgba(0,0,0,0.30)"/>
-         <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      // Transparent at left edge → solid to the right
+      const fadePct = Math.floor(100 * (featherW / (textZoneWidth + featherW)));
+      panelGradDef = `<linearGradient id="panelGrad" x1="0" y1="0" x2="1" y2="0">
+         <stop offset="0%"          stop-color="${safeColor}" stop-opacity="0"/>
+         <stop offset="${fadePct}%" stop-color="${safeColor}" stop-opacity="${pOpacity}"/>
+         <stop offset="100%"        stop-color="${safeColor}" stop-opacity="${pOpacity}"/>
       </linearGradient>`;
-      gradientRect = `<rect x="${width * 0.45}" width="${width * 0.55}" height="${height}" fill="url(#textGrad)"/>`;
    } else {
-      // center — bottom gradient
-      gradientDef = `<linearGradient id="textGrad" x1="0" y1="0" x2="0" y2="1">
-         <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
-         <stop offset="52%" stop-color="rgba(0,0,0,0.38)"/>
-         <stop offset="100%" stop-color="rgba(0,0,0,0.78)"/>
+      panelGradDef = `<linearGradient id="panelGrad" x1="0" y1="0" x2="0" y2="1">
+         <stop offset="0%"   stop-color="#000000" stop-opacity="0"/>
+         <stop offset="100%" stop-color="#000000" stop-opacity="0.85"/>
       </linearGradient>`;
-      gradientRect = `<rect width="${width}" height="${height}" fill="url(#textGrad)"/>`;
    }
 
-   // ── Badge placement ──
-   const badgeSvgParts: string[] = [];
-   const badgeScale = width / 1280;
-
-   if (badges.includes("growth_arrow")) {
-      // Top-right corner
-      badgeSvgParts.push(renderGrowthArrow(width - 140 * badgeScale, 20 * badgeScale, badgeScale));
-   }
-   if (badges.includes("rating")) {
-      // Bottom-right corner
-      badgeSvgParts.push(renderRating(width - 110 * badgeScale, height - 110 * badgeScale, badgeScale));
-   }
-   if (badges.includes("youtube_play")) {
-      // Bottom-left corner (only if not in split_left layout)
-      const byX = layout_style === "split_left" ? width * 0.52 : 20 * badgeScale;
-      badgeSvgParts.push(renderYoutubePlay(byX, height - 100 * badgeScale, badgeScale));
-   }
-
-   // ── Compose final SVG ──
-   const svgOverlay = `
-<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+   // ─────────────────────────────────────────────────────────────────────────
+   // Compose final SVG overlay
+   // ─────────────────────────────────────────────────────────────────────────
+   const svgOverlay = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
    <defs>
-      ${gradientDef}
-      <filter id="glowText" x="-20%" y="-20%" width="140%" height="140%">
-         <feGaussianBlur stdDeviation="5" result="blur"/>
-         <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      ${panelGradDef}
+      <linearGradient id="centerGrad" x1="0" y1="0" x2="0" y2="1">
+         <stop offset="0%"   stop-color="#000000" stop-opacity="0"/>
+         <stop offset="35%"  stop-color="#000000" stop-opacity="0.50"/>
+         <stop offset="100%" stop-color="#000000" stop-opacity="0.90"/>
+      </linearGradient>
+      <filter id="dropShadow" x="-15%" y="-15%" width="130%" height="130%">
+         <feDropShadow dx="3" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.95"/>
       </filter>
-      <filter id="glowBadge" x="-30%" y="-30%" width="160%" height="160%">
-         <feGaussianBlur stdDeviation="4" result="blur"/>
-         <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      <filter id="badgeShadow" x="-30%" y="-30%" width="160%" height="160%">
+         <feDropShadow dx="2" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.75"/>
       </filter>
    </defs>
-
-   <!-- Dark gradient vignette -->
-   ${gradientRect}
-
-   <!-- Tilted text block -->
-   ${tiltedTextGroup}
-
-   <!-- Badges -->
-   ${badgeSvgParts.join("\n")}
+   ${svgParts.join("\n   ")}
 </svg>`;
 
    const result = await sharp(imageBuffer)
@@ -445,7 +706,7 @@ async function overlayDynamicLayout(
       .png()
       .toBuffer();
 
-   console.log(`[Sharp] Dynamic layout applied. Final size: ${(result.length / 1024).toFixed(1)} KB`);
+   console.log(`[Sharp] Professional overlay applied. Final size: ${(result.length / 1024).toFixed(1)} KB`);
    return result;
 }
 
@@ -481,7 +742,6 @@ export const generateThumbnail = async (req: Request, res: Response) => {
       // Determine dimensions
       let width = 1280;
       let height = 720;
-
       if (aspect_ratio === "1:1") {
          width = 800;
          height = 800;
@@ -498,50 +758,33 @@ export const generateThumbnail = async (req: Request, res: Response) => {
       if (text_overlay) {
          layoutPlan = await analyzeTitleAndPlanLayout(title, user_prompt, style, color_scheme);
       } else {
-         // Skip AI planning if overlay is disabled
-         const styleDesc = stylePrompts[style as keyof typeof stylePrompts] || stylePrompts["Bold & Graphic"];
-         const colorDesc = colorSchemeDescriptions[color_scheme as keyof typeof colorSchemeDescriptions] || "";
+         // Text overlay disabled — generate a clean background only
+         const styleDesc =
+            stylePrompts[style as keyof typeof stylePrompts] || stylePrompts["Bold & Graphic"];
+         const colorDesc =
+            colorSchemeDescriptions[color_scheme as keyof typeof colorSchemeDescriptions] || "";
          layoutPlan = {
             layout_style: "center",
-            image_prompt: `A highly professional YouTube thumbnail background. Style: ${styleDesc}. Color: ${colorDesc}. Topic: "${title}". NO TEXT in the image. Leave lower third clear. ABSOLUTELY NO LETTERS, WORDS, or TYPOGRAPHY in the image.`,
-            text_lines: [],
-            text_tilt: 0,
-            text_alignment: "center",
-            badges: [],
+            panel_color: "#0a0a1a",
+            panel_opacity: 0.0,
+            image_prompt: `A highly professional YouTube thumbnail background. Style: ${styleDesc}. Color: ${colorDesc}. Topic: "${title}". ABSOLUTELY NO TEXT, LETTERS, WORDS, or TYPOGRAPHY in the image.`,
+            text_panels: [],
+            info_badges: [],
+            corner_decorations: [],
+            star_callout: null,
+            subscriber_callout: null,
          };
       }
 
-      // ── Step 2: Build the final image prompt (use AI's composition-aware prompt) ──
-      const imagePrompt = layoutPlan.image_prompt +
+      // ── Step 2: Append hard no-text instruction to image prompt ──
+      const imagePrompt =
+         layoutPlan.image_prompt +
          " ABSOLUTELY NO TEXT, LETTERS, WORDS, NUMBERS, WATERMARKS, SIGNS, OR TYPOGRAPHY ANYWHERE IN THE IMAGE. The image must be 100% text-free.";
 
-      // ── Step 3: Generate the background image ──
-      let rawImageBuffer: Buffer;
+      // ── Step 3: Generate the background image (SDXL) ──
+      const rawImageBuffer = await generateWithSDXL(imagePrompt, width, height);
 
-      try {
-         rawImageBuffer = await generateWithGemini(imagePrompt);
-      } catch (geminiError: any) {
-         console.warn(`[Gemini] Failed: ${geminiError.message}. Trying SDXL fallback...`);
-         try {
-            rawImageBuffer = await generateWithSDXL(imagePrompt, width, height);
-         } catch (sdxlError: any) {
-            console.warn(`[SDXL] Failed: ${sdxlError.message}. Using stock photo fallback...`);
-            const stopWords = new Set([
-               "the", "a", "an", "is", "for", "to", "my", "awesome", "youtube", "video", "in", "with",
-               "and", "how", "create", "make", "of", "on", "at", "by", "this", "that", "it", "or", "from"
-            ]);
-            const titleWords = (title || "").toLowerCase().split(/[^a-zA-Z0-9]/).filter((w: string) => w.length > 2 && !stopWords.has(w));
-            const promptWords = (user_prompt || "").toLowerCase().split(/[^a-zA-Z0-9]/).filter((w: string) => w.length > 2 && !stopWords.has(w));
-            const allWords = [...titleWords, ...promptWords].slice(0, 3);
-            const keywords = allWords.length > 0 ? allWords.join(",") : "technology,modern";
-            const stockUrl = `https://loremflickr.com/${width}/${height}/${encodeURIComponent(keywords)}`;
-            const stockResponse = await fetch(stockUrl);
-            const arrayBuffer = await stockResponse.arrayBuffer();
-            rawImageBuffer = Buffer.from(arrayBuffer);
-         }
-      }
-
-      // ── Step 4: Apply the dynamic SVG layout overlay ──
+      // ── Step 4: Apply the professional SVG layout overlay ──
       const finalBuffer = await overlayDynamicLayout(
          rawImageBuffer,
          layoutPlan,
@@ -552,15 +795,14 @@ export const generateThumbnail = async (req: Request, res: Response) => {
 
       console.log(`=== Thumbnail Generation Complete ===\n`);
 
-      // ── Step 5: Save, upload to Cloudinary, clean up ──
-      const filename = `final-output-${Date.now()}.png`;
-      const filePath = path.join("images", filename);
-
-      fs.mkdirSync("images", { recursive: true });
-      fs.writeFileSync(filePath, finalBuffer);
-
-      const uploadResult = await cloudinary.uploader.upload(filePath, {
-         resource_type: "image",
+      // ── Step 5: Upload directly to Cloudinary from memory ──
+      const uploadResult: any = await new Promise((resolve, reject) => {
+         cloudinary.uploader
+            .upload_stream({ resource_type: "image" }, (error, result) => {
+               if (error) reject(error);
+               else resolve(result);
+            })
+            .end(finalBuffer);
       });
 
       thumbnail.image_url = uploadResult.url;
@@ -569,9 +811,6 @@ export const generateThumbnail = async (req: Request, res: Response) => {
       await thumbnail.save();
 
       res.json({ message: "Thumbnail Generated", thumbnail });
-
-      // Clean up local file
-      fs.unlinkSync(filePath);
    } catch (error: any) {
       console.log(error);
       res.status(500).json({ message: error.message });

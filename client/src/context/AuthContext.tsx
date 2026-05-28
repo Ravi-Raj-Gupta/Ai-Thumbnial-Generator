@@ -56,8 +56,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setLoggedIn(true);
          }
          toast.success(data.message || 'User created successfully');
-      } catch (error) {
+      } catch (error: any) {
          console.log(error);
+         toast.error(error?.response?.data?.message || error.message || "Registration failed");
       }
    };
 
@@ -72,17 +73,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
          const { data } = await api.post("/api/auth/login", {
             email,
             password,
-         });
-
-         if (data.user) {
-            setUser(data.user as IUser);
-            setLoggedIn(true);
-         }
-         toast.success(data.message);
-      } catch (error) {
-         console.log(error);
-      }
-   };
+          });
+ 
+          if (data.user) {
+             setUser(data.user as IUser);
+             setLoggedIn(true);
+          }
+          toast.success(data.message);
+       } catch (error: any) {
+          console.log(error);
+          toast.error(error?.response?.data?.message || error.message || "Login failed");
+       }
+    };
 
    const logout = async () => {
       try {
