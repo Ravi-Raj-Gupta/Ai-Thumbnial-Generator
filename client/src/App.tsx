@@ -11,6 +11,8 @@ import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
 import ContactUs from "./pages/ContactUs";
 import About from "./pages/About";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 
 export default function App() {
    const { pathname } = useLocation();
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/contact" element={<ContactUs />} />
             <Route path="/about" element={<About />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
          </Routes>
          {!isPreviewRoute && <Footer />}
       </>

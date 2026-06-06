@@ -15,15 +15,13 @@ export default function Footer() {
                   viewport={{ once: true }}
                   transition={{ type: "spring", stiffness: 280, damping: 70, mass: 1 }}
                >
-                  <Link to="/" className="flex items-center gap-3">
+                  <Link to="/" className="flex items-center gap-3 sm:gap-4 md:gap-5">
                      <img
-                        className="size-8 aspect-square"
+                        className="size-8 sm:size-9 md:size-10 aspect-square transition-all"
                         src="/favicon.svg"
-                        alt="footer logo"
-                        width={32}
-                        height={32}
+                        alt="ClickFrame logo"
                      />
-                     <span className="text-xl font-bold text-white tracking-wide">
+                     <span className="text-xl sm:text-2xl font-bold text-white tracking-wide transition-all">
                         Click<span className="text-pink-500">Frame</span>
                      </span>
                   </Link>
@@ -67,11 +65,11 @@ export default function Footer() {
                transition={{ delay: 0.2 }}
             >
                <p className="text-center md:text-left">
-                  &copy; {new Date().getFullYear()} ClickFrame by Ravi Raj. All rights reserved.
+                  &copy; {new Date().getFullYear()} ClickFrame by Ravi Raj ❤️. All rights reserved.
                </p>
                <div className="flex items-center gap-6">
-                  <Link to="#" className="transition hover:text-zinc-300">Privacy Policy</Link>
-                  <Link to="#" className="transition hover:text-zinc-300">Terms of Service</Link>
+                  <Link to="/privacy-policy" className="transition hover:text-zinc-300">Privacy Policy</Link>
+                  <Link to="/terms-of-service" className="transition hover:text-zinc-300">Terms of Service</Link>
                </div>
             </motion.div>
          </div>

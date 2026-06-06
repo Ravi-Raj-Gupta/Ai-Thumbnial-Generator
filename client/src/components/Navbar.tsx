@@ -25,7 +25,7 @@ export default function Navbar() {
             }}
          >
             <Link to="/">
-               <img src="/logo.svg" alt="logo" className="h-14 w-auto" />
+               <img src="/logo.svg" alt="logo" className="h-8 sm:h-10 md:h-12 lg:h-14 w-auto transition-all" />
             </Link>
 
             <div className="hidden md:flex items-center gap-8 transition duration-500">
@@ -35,16 +35,12 @@ export default function Navbar() {
                <Link to="/generate" className="hover:text-pink-300 transition">
                   Generate
                </Link>
-               {isLoggedIn ? (
+               {isLoggedIn && (
                   <Link
                      to="/my-generation"
                      className="hover:text-pink-300 transition"
                   >
                      My Generations
-                  </Link>
-               ) : (
-                  <Link to="#" className="hover:text-pink-300 transition">
-                     About
                   </Link>
                )}
                <Link to="/about" className="hover:text-pink-300 transition">
@@ -129,15 +125,14 @@ export default function Navbar() {
             <Link onClick={() => setIsOpen(false)} to="/generate">
                Generate
             </Link>
-            {isLoggedIn ? (
+            {isLoggedIn && (
                <Link onClick={() => setIsOpen(false)} to="/my-generation">
                   My Generations
                </Link>
-            ) : (
-               <Link onClick={() => setIsOpen(false)} to="#">
-                  About
-               </Link>
             )}
+            <Link onClick={() => setIsOpen(false)} to="/about">
+               About
+            </Link>
             <Link onClick={() => setIsOpen(false)} to="/contact">
                Contact us
             </Link>

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 
 const springValues = {
     damping: 30,
@@ -9,6 +10,7 @@ const springValues = {
 
 export default function TiltedImage({ rotateAmplitude = 3, }) {
     const ref = useRef<HTMLDivElement>(null);
+    const navigate = useNavigate();
     const x = useMotionValue(0);
     const y = useMotionValue(0);
     const rotateX = useSpring(useMotionValue(0), springValues);
@@ -45,15 +47,15 @@ export default function TiltedImage({ rotateAmplitude = 3, }) {
     }
 
     return (
-        <motion.figure ref={ref} className="relative w-full h-full perspective-midrange mt-16 max-w-4xl mx-auto flex flex-col items-center justify-center" onMouseMove={handleMouse} onMouseLeave={handleMouseLeave}
+        <motion.figure ref={ref} onClick={() => navigate('/generate')} className="relative w-full h-full perspective-midrange mt-16 max-w-4xl mx-auto flex flex-col items-center justify-center cursor-pointer group" onMouseMove={handleMouse} onMouseLeave={handleMouseLeave}
             initial={{ y: 150, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
             viewport={{ once: true }}
             transition={{ type: "spring", stiffness: 320, damping: 70, mass: 1 }}
         >
-            <motion.div className="relative transform-3d w-full max-w-4xl" style={{ rotateX, rotateY }} >
+            <motion.div className="relative transform-3d w-full max-w-4xl transition-transform duration-300 group-hover:scale-[1.02]" style={{ rotateX, rotateY }} >
                 <motion.img src="/hero_img.png"
-                    className=" border-b bg-linear-180 from-pink-500 to-transparent p-1 w-full rounded-[15px] will-change-transform transform-[translateZ(0)]"
+                    className=" border-b bg-linear-180 from-pink-500 to-transparent p-1 w-full rounded-[15px] will-change-transform transform-[translateZ(0)] shadow-2xl transition-shadow duration-300 group-hover:shadow-pink-500/20"
                     alt="hero section showcase"
                 />
             </motion.div>
