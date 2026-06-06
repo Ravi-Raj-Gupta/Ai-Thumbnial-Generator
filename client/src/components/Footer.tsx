@@ -5,56 +5,76 @@ import type { IFooterLink } from "../types";
 
 export default function Footer() {
    return (
-      <footer className="mt-40 flex flex-wrap justify-center gap-10 overflow-hidden px-6 py-6 text-[13px] text-gray-500 md:justify-between md:gap-20 md:px-16 lg:px-24 xl:px-32">
-         <motion.div
-            className="flex flex-wrap items-start gap-10 md:gap-35"
-            initial={{ x: -150, opacity: 0 }}
-            whileInView={{ x: 0, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ type: "spring", stiffness: 280, damping: 70, mass: 1 }}
-         >
-            <Link to="/">
-               <img
-                  className="size-8 aspect-square"
-                  src="/favicon.svg"
-                  alt="footer logo"
-                  width={32}
-                  height={32}
-               />
-            </Link>
+      <footer className="mt-40 border-t border-white/10 bg-black/20 pt-16 pb-8">
+         <div className="mx-auto max-w-7xl px-6 sm:px-10 md:px-16 lg:px-24 xl:px-32">
+            <div className="flex flex-col md:flex-row justify-between gap-12 md:gap-24">
+               <motion.div
+                  className="flex flex-col items-start max-w-sm"
+                  initial={{ y: 30, opacity: 0 }}
+                  whileInView={{ y: 0, opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ type: "spring", stiffness: 280, damping: 70, mass: 1 }}
+               >
+                  <Link to="/" className="flex items-center gap-3">
+                     <img
+                        className="size-8 aspect-square"
+                        src="/favicon.svg"
+                        alt="footer logo"
+                        width={32}
+                        height={32}
+                     />
+                     <span className="text-xl font-bold text-white tracking-wide">
+                        Click<span className="text-pink-500">Frame</span>
+                     </span>
+                  </Link>
+                  <p className="mt-6 text-sm leading-relaxed text-zinc-400">
+                     Making every creator feel valued, no matter the size of the audience. Stop wasting hours and let AI design thumbnails that get clicks.
+                  </p>
+               </motion.div>
 
-            {footerData.map((section, index) => (
-               <div key={index}>
-                  <p className="font-semibold text-slate-100">{section.title}</p>
-                  <ul className="mt-2 space-y-2">
-                     {section.links.map((link: IFooterLink, linkIndex: number) => (
-                        <li key={linkIndex}>
-                           <Link
-                              to={link.href}
-                              className="transition hover:text-pink-600"
-                           >
-                              {link.name}
-                           </Link>
-                        </li>
-                     ))}
-                  </ul>
+               <motion.div
+                  className="grid grid-cols-2 sm:grid-cols-3 gap-10 sm:gap-16 w-full md:w-auto"
+                  initial={{ y: 30, opacity: 0 }}
+                  whileInView={{ y: 0, opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.1, type: "spring", stiffness: 280, damping: 70, mass: 1 }}
+               >
+                  {footerData.map((section, index) => (
+                     <div key={index}>
+                        <h4 className="font-semibold text-white">{section.title}</h4>
+                        <ul className="mt-6 space-y-3">
+                           {section.links.map((link: IFooterLink, linkIndex: number) => (
+                              <li key={linkIndex}>
+                                 <Link
+                                    to={link.href}
+                                    className="text-sm text-zinc-400 transition hover:text-pink-400"
+                                 >
+                                    {link.name}
+                                 </Link>
+                              </li>
+                           ))}
+                        </ul>
+                     </div>
+                  ))}
+               </motion.div>
+            </div>
+
+            <motion.div
+               className="mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-zinc-500"
+               initial={{ opacity: 0 }}
+               whileInView={{ opacity: 1 }}
+               viewport={{ once: true }}
+               transition={{ delay: 0.2 }}
+            >
+               <p className="text-center md:text-left">
+                  &copy; {new Date().getFullYear()} ClickFrame by Ravi Raj. All rights reserved.
+               </p>
+               <div className="flex items-center gap-6">
+                  <Link to="#" className="transition hover:text-zinc-300">Privacy Policy</Link>
+                  <Link to="#" className="transition hover:text-zinc-300">Terms of Service</Link>
                </div>
-            ))}
-         </motion.div>
-         <motion.div
-            className="flex flex-col items-end gap-2 max-md:items-center max-md:text-center"
-            initial={{ x: 150, opacity: 0 }}
-            whileInView={{ x: 0, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ type: "spring", stiffness: 280, damping: 70, mass: 1 }}
-         >
-            <p className="max-w-60">
-               Making every creator feel valued, no matter the size of the audience.
-            </p>
-            <p className="mt-3 text-center">
-               &copy; {new Date().getFullYear()} ClickFrame | Ravi Raj
-            </p>
-         </motion.div>
+            </motion.div>
+         </div>
       </footer>
    );
 }

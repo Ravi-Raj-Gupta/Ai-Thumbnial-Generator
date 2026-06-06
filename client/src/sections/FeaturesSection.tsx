@@ -8,7 +8,7 @@ import type { IFeature } from "../types";
 
 export default function FeaturesSection() {
     return (
-        <div id="features" className="px-4 md:px-16 lg:px-24 xl:px-32">
+        <div id="features" className="px-6 sm:px-10 md:px-16 lg:px-24 xl:px-32 overflow-hidden">
             <SectionTitle text1="Features" text2="Why user our Generator" text3="Create stunning thumbnails that gets clicks, without the hassle." />
             <div className="flex flex-wrap items-center justify-center gap-6 md:gap-4 mt-16 px-6">
                 {featuresData.map((feature: IFeature, index: number) => (

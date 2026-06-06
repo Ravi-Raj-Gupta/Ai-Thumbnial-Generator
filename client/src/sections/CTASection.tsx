@@ -6,13 +6,13 @@ export default function CTASection() {
 
    const navigate = useNavigate()
     return (
-        <motion.div className="max-w-5xl py-16 mt-40 md:pl-20 md:w-full max-md:mx-4 md:mx-auto flex flex-col md:flex-row max-md:gap-6 items-center justify-between text-left bg-linear-to-b from-pink-900 to-pink-950 rounded-2xl p-6 text-white"
+        <motion.div className="max-w-5xl py-16 mt-40 md:pl-20 md:w-full max-md:mx-4 md:mx-auto flex flex-col md:flex-row max-md:gap-6 items-center justify-between text-center md:text-left bg-linear-to-b from-pink-900 to-pink-950 rounded-2xl p-6 text-white"
             initial={{ y: 150, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
             viewport={{ once: true }}
             transition={{ type: "spring", stiffness: 320, damping: 70, mass: 1 }}
         >
-            <div>
+            <div className="flex flex-col items-center md:items-start">
                 <motion.h1 className="text-4xl md:text-[46px] md:leading-15 font-semibold bg-linear-to-r from-white to-pink-400 text-transparent bg-clip-text"
                     initial={{ y: 80, opacity: 0 }}
                     whileInView={{ y: 0, opacity: 1 }}
