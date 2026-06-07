@@ -23,7 +23,7 @@ export default function App() {
    }, [pathname]);
 
    return (
-      <>
+      <main className="overflow-x-hidden w-full relative">
       <Toaster />
          {!isPreviewRoute && <LenisScroll />}
          {!isPreviewRoute && <Navbar />}
@@ -40,6 +40,6 @@ export default function App() {
             <Route path="/terms-of-service" element={<TermsOfService />} />
          </Routes>
          {!isPreviewRoute && <Footer />}
-      </>
+      </main>
    );
 }
